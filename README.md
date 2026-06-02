@@ -9,15 +9,15 @@ Développé pour un usage personnel et communautaire, MeteoInsight-Pro est enti�
 ## 📸 Aperçu de l'Interface
 
 ### 1. Tableau de bord principal (Plan 2D)
-![Dashboard principal](assets/dashboard_mockup.png)
+![Dashboard principal](assets/dashboard_screenshot.png)
 *Visualisation interactive 2D de votre logement avec calques thermiques, éclairage, humidité relative, mouvements en direct et position animée de votre aspirateur Roborock.*
 
 ### 2. Modèles de Prévisions (Heuristiques vs Machine Learning)
-![Prévisions ML vs Heuristiques](assets/forecasts_mockup.png)
+![Prévisions ML vs Heuristiques](assets/forecasts_screenshot.png)
 *Comparaison en temps réel entre les règles physiques empiriques (gradients barométriques) et un modèle KNN local entraîné sur votre historique Home Assistant.*
 
 ### 3. Console de Configuration Intégrée
-![Console de Configuration](assets/settings_mockup.png)
+![Console de Configuration](assets/settings_screenshot.png)
 *Interface d'administration complète et sécurisée pour gérer vos identifiants HA, vos 21 entités de capteurs et la disposition de vos pièces en JSON avec validateur intégré.*
 
 ---
