@@ -1,4 +1,4 @@
-# MeteoInsight-Pro | Connected Home & Weather Dashboard
+# MeteoInsight-Pro | Station Météo Connectée & Tableau de Bord Domotique
 
 MeteoInsight-Pro est une console intelligente et moderne de suivi météorologique local et de gestion domotique, interfacée directement avec **Home Assistant**. Elle intègre de la modélisation statistique et des algorithmes de Machine Learning locaux (KNN, régressions linéaires) pour prédire le climat intérieur/extérieur, estimer l'affluence des pièces et fournir des recommandations d'aération adaptées (calculs d'humidité absolue).
 
