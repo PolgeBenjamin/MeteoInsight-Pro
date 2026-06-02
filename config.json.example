@@ -1,0 +1,71 @@
+{
+  "HA_URL": "http://YOUR_HOME_ASSISTANT_IP:8123",
+  "HA_TOKEN": "YOUR_LONG_LIVED_ACCESS_TOKEN",
+  "entities": {
+    "outdoor_temp": "sensor.outdoor_temp",
+    "outdoor_humidity": "sensor.outdoor_humidity",
+    "mobile_temp": "sensor.mobile_temp",
+    "mobile_humidity": "sensor.mobile_humidity",
+    "purifier_pm25": "sensor.air_purifier_pm25",
+    "purifier_quality": "sensor.air_purifier_air_quality",
+    "presence_person": "person.your_name",
+    "iphone_battery": "sensor.your_phone_battery_level",
+    "roborock_vacuum": "vacuum.roborock_vacuum",
+    "roborock_battery": "sensor.roborock_battery",
+    "roborock_room": "sensor.roborock_current_room",
+    "roborock_status": "sensor.roborock_status",
+    "sun": "sun.sun",
+    "sun_next_rising": "sensor.sun_next_rising",
+    "sun_next_setting": "sensor.sun_next_setting",
+    "netatmo_temp": "sensor.netatmo_temperature",
+    "netatmo_humidity": "sensor.netatmo_humidity",
+    "netatmo_co2": "sensor.netatmo_co2",
+    "netatmo_noise": "sensor.netatmo_noise",
+    "netatmo_pressure": "sensor.netatmo_pressure",
+    "weather_forecast": "weather.forecast_your_home"
+  },
+  "rooms": [
+    {
+      "id": "bureau",
+      "label": "Bureau",
+      "x": 20,
+      "y": 20,
+      "w": 160,
+      "h": 120,
+      "tempEntity": "sensor.bureau_temperature",
+      "lightEntity": "sensor.bureau_illumination",
+      "motionEntity": "binary_sensor.bureau_motion",
+      "humEntity": "sensor.bureau_humidity",
+      "clickable": true
+    },
+    {
+      "id": "hall",
+      "label": "Hall",
+      "x": 195,
+      "y": 20,
+      "w": 160,
+      "h": 80,
+      "tempEntity": null,
+      "lightEntity": null,
+      "motionEntity": null,
+      "humEntity": null,
+      "clickable": false
+    },
+    {
+      "id": "salon",
+      "label": "Salon",
+      "x": 20,
+      "y": 300,
+      "w": 160,
+      "h": 180,
+      "tempEntity": "sensor.salon_temperature",
+      "lightEntity": "sensor.salon_illumination",
+      "motionEntity": "binary_sensor.salon_motion",
+      "humEntity": "sensor.salon_humidity",
+      "co2Entity": "sensor.salon_co2",
+      "noiseEntity": "sensor.salon_noise",
+      "pressureEntity": "sensor.salon_pressure",
+      "clickable": true
+    }
+  ]
+}

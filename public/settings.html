@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeteoInsight-Pro | Configuration</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Header Area -->
+    <header class="dashboard-header">
+      <div class="header-main">
+        <div class="logo-area">
+          <div class="pulse-indicator status-online" id="connection-status"></div>
+          <h1>MeteoInsight-Pro</h1>
+          <span class="badge badge-accent">Configuration</span>
+        </div>
+        <div class="clock-area">
+          <div id="live-time">00:00:00</div>
+          <div id="live-date">--/--/----</div>
+        </div>
+        <nav class="header-nav">
+          <a href="./" class="nav-link"><i data-lucide="layout"></i> Tableau de bord</a>
+          <a href="./forecasts.html" class="nav-link"><i data-lucide="trending-up"></i> Prévisions</a>
+          <a href="./presence.html" class="nav-link"><i data-lucide="user-check"></i> Présence</a>
+          <a href="./heat.html" class="nav-link"><i data-lucide="thermometer"></i> Ventilation</a>
+          <a href="./settings.html" class="nav-link active"><i data-lucide="settings"></i> Configuration</a>
+          <a href="https://github.com/PolgeBenjamin/MeteoInsight-Pro" target="_blank" class="nav-link github-link"><i data-lucide="github"></i> GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Main settings area -->
+    <main class="dashboard-grid" style="grid-template-columns: 1fr; max-width: 800px; margin: 0 auto; width: 100%;">
+      
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="sliders"></i>
+          <h2>Console de Configuration</h2>
+        </div>
+
+        <div class="card settings-card" style="padding: 2.2rem 2rem;">
+          <div class="card-bg-gradient" style="background: radial-gradient(circle at 100% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%);"></div>
+          
+          <div class="horizon-selector" id="settings-tabs" style="margin-bottom: 2rem; width: max-content; padding: 0.2rem; position: relative; z-index: 2;">
+            <button type="button" class="horizon-btn active" data-tab="connection">Connexion HA</button>
+            <button type="button" class="horizon-btn" data-tab="entities">Entités de Capteurs</button>
+            <button type="button" class="horizon-btn" data-tab="rooms">Plan & Pièces</button>
+          </div>
+
+          <form id="settings-form" style="position: relative; z-index: 1; display: flex; flex-direction: column; gap: 1.75rem;">
+            
+            <!-- Tab 1: Connection -->
+            <div class="tab-pane active" id="tab-connection">
+              <div class="form-group">
+                <label for="ha-url">URL de Home Assistant</label>
+                <input type="url" id="ha-url" name="HA_URL" class="form-control" placeholder="http://192.168.1.100:8123" required>
+                <span class="form-help">L'adresse IP locale de votre serveur Home Assistant (incluant le port, généralement :8123).</span>
+              </div>
+              <div class="form-group">
+                <label for="ha-token">Jeton d'accès longue durée (Long-Lived Access Token)</label>
+                <input type="password" id="ha-token" name="HA_TOKEN" class="form-control" placeholder="Entrez votre jeton HA..." required>
+                <span class="form-help">Générez ce jeton dans Home Assistant sous Profil utilisateur &rarr; Jetons d'accès de longue durée.</span>
+              </div>
+            </div>
+
+            <!-- Tab 2: Entities -->
+            <div class="tab-pane" id="tab-entities">
+              <div class="settings-section-title">Météo Extérieure & Capteur Mobile</div>
+              <div class="settings-grid">
+                <div class="form-group">
+                  <label for="ent-outdoor-temp">Température extérieure</label>
+                  <input type="text" id="ent-outdoor-temp" class="form-control" placeholder="sensor.outdoor_temperature">
+                </div>
+                <div class="form-group">
+                  <label for="ent-outdoor-humidity">Humidité extérieure</label>
+                  <input type="text" id="ent-outdoor-humidity" class="form-control" placeholder="sensor.outdoor_humidity">
+                </div>
+                <div class="form-group">
+                  <label for="ent-mobile-temp">Température mobile (Meter Pro)</label>
+                  <input type="text" id="ent-mobile-temp" class="form-control" placeholder="sensor.mobile_temperature">
+                </div>
+                <div class="form-group">
+                  <label for="ent-mobile-humidity">Humidité mobile (Meter Pro)</label>
+                  <input type="text" id="ent-mobile-humidity" class="form-control" placeholder="sensor.mobile_humidity">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label for="ent-weather-forecast">Entité Prévisions Météo (weather.*)</label>
+                  <input type="text" id="ent-weather-forecast" class="form-control" placeholder="weather.forecast_maison">
+                </div>
+              </div>
+
+              <div class="settings-section-title">Station Netatmo (Salon)</div>
+              <div class="settings-grid">
+                <div class="form-group">
+                  <label for="ent-netatmo-temp">Température Netatmo</label>
+                  <input type="text" id="ent-netatmo-temp" class="form-control" placeholder="sensor.netatmo_temp">
+                </div>
+                <div class="form-group">
+                  <label for="ent-netatmo-humidity">Humidité Netatmo</label>
+                  <input type="text" id="ent-netatmo-humidity" class="form-control" placeholder="sensor.netatmo_humidity">
+                </div>
+                <div class="form-group">
+                  <label for="ent-netatmo-co2">Dioxyde de Carbone (CO2)</label>
+                  <input type="text" id="ent-netatmo-co2" class="form-control" placeholder="sensor.netatmo_co2">
+                </div>
+                <div class="form-group">
+                  <label for="ent-netatmo-noise">Bruit (dB)</label>
+                  <input type="text" id="ent-netatmo-noise" class="form-control" placeholder="sensor.netatmo_noise">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label for="ent-netatmo-pressure">Pression Atmosphérique</label>
+                  <input type="text" id="ent-netatmo-pressure" class="form-control" placeholder="sensor.netatmo_pressure">
+                </div>
+              </div>
+
+              <div class="settings-section-title">Aspirateur Roborock & Purificateur</div>
+              <div class="settings-grid">
+                <div class="form-group">
+                  <label for="ent-roborock-vacuum">Aspirateur (vacuum.*)</label>
+                  <input type="text" id="ent-roborock-vacuum" class="form-control" placeholder="vacuum.roborock_qrevo">
+                </div>
+                <div class="form-group">
+                  <label for="ent-roborock-battery">Batterie de l'aspirateur</label>
+                  <input type="text" id="ent-roborock-battery" class="form-control" placeholder="sensor.roborock_battery">
+                </div>
+                <div class="form-group">
+                  <label for="ent-roborock-room">Pièce actuelle de l'aspirateur</label>
+                  <input type="text" id="ent-roborock-room" class="form-control" placeholder="sensor.roborock_current_room">
+                </div>
+                <div class="form-group">
+                  <label for="ent-roborock-status">Statut de l'aspirateur</label>
+                  <input type="text" id="ent-roborock-status" class="form-control" placeholder="sensor.roborock_status">
+                </div>
+                <div class="form-group">
+                  <label for="ent-purifier-pm25">Qualité d'air PM2.5</label>
+                  <input type="text" id="ent-purifier-pm25" class="form-control" placeholder="sensor.purifier_pm25">
+                </div>
+                <div class="form-group">
+                  <label for="ent-purifier-quality">Qualité d'air (Libellé)</label>
+                  <input type="text" id="ent-purifier-quality" class="form-control" placeholder="sensor.purifier_air_quality">
+                </div>
+              </div>
+
+              <div class="settings-section-title">Présence & Environnement</div>
+              <div class="settings-grid">
+                <div class="form-group">
+                  <label for="ent-presence-person">Personne à suivre (person.*)</label>
+                  <input type="text" id="ent-presence-person" class="form-control" placeholder="person.benjamin_polge">
+                </div>
+                <div class="form-group">
+                  <label for="ent-iphone-battery">Batterie iPhone</label>
+                  <input type="text" id="ent-iphone-battery" class="form-control" placeholder="sensor.iphone_battery_level">
+                </div>
+                <div class="form-group">
+                  <label for="ent-sun">Entité Soleil</label>
+                  <input type="text" id="ent-sun" class="form-control" placeholder="sun.sun">
+                </div>
+                <div class="form-group">
+                  <label for="ent-sun-next-rising">Lever de soleil</label>
+                  <input type="text" id="ent-sun-next-rising" class="form-control" placeholder="sensor.sun_next_rising">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label for="ent-sun-next-setting">Coucher de soleil</label>
+                  <input type="text" id="ent-sun-next-setting" class="form-control" placeholder="sensor.sun_next_setting">
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab 3: Rooms -->
+            <div class="tab-pane" id="tab-rooms">
+              <div class="form-group">
+                <label for="rooms-json">Disposition du Plan des Pièces (JSON)</label>
+                <textarea id="rooms-json" rows="18" class="form-control" style="font-family: monospace; color: #10b981; background: rgba(0, 0, 0, 0.25); line-height: 1.4; border-color: rgba(255,255,255,0.15);" placeholder="[ ... ]"></textarea>
+                <span class="form-help">
+                  Spécifiez les pièces de la maison. Les coordonnées x, y, w, h sont basées sur un espace de dessin de 500x500. Les entités spécifiées écraseront les valeurs par défaut.
+                </span>
+              </div>
+            </div>
+
+            <!-- Status Alert Message Banner -->
+            <div id="status-banner" style="display: none; padding: 1rem; border-radius: 12px; font-size: 0.85rem; font-weight: 500; align-items: center; gap: 0.5rem;">
+              <i id="status-icon" data-lucide="info" style="width: 18px; height: 18px;"></i>
+              <span id="status-message">Message</span>
+            </div>
+
+            <!-- Submit Button -->
+            <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+              <button type="submit" class="nav-link" id="submit-btn" style="background: var(--color-primary); color: #fff; border-color: rgba(99, 102, 241, 0.4); font-size: 0.95rem; font-weight: 600; padding: 0.75rem 1.75rem; cursor: pointer; border-radius: 14px;">
+                <i data-lucide="save"></i> Sauvegarder les paramètres
+              </button>
+            </div>
+
+          </form>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer info -->
+    <footer class="app-footer">
+      <p>MeteoInsight-Pro &bull; Paramètres de communication locale &bull; Usage Personnel Uniquement</p>
+    </footer>
+
+  </div>
+
+  <!-- Dynamic Logic -->
+  <script src="settings.js"></script>
+</body>
+</html>

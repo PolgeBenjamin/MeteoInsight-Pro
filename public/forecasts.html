@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeteoInsight-Pro | Prévisions</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Chart.js for premium history chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Header Area -->
+    <header class="dashboard-header">
+      <div class="header-main">
+        <div class="logo-area">
+          <div class="pulse-indicator status-online" id="connection-status"></div>
+          <h1>MeteoInsight-Pro</h1>
+          <span class="badge badge-accent">Prévisions</span>
+        </div>
+        <div class="clock-area">
+          <div id="live-time">00:00:00</div>
+          <div id="live-date">--/--/----</div>
+        </div>
+        <nav class="header-nav">
+          <a href="./" class="nav-link"><i data-lucide="layout"></i> Tableau de bord</a>
+          <a href="./forecasts.html" class="nav-link active"><i data-lucide="trending-up"></i> Prévisions</a>
+          <a href="./presence.html" class="nav-link"><i data-lucide="user-check"></i> Présence</a>
+          <a href="./heat.html" class="nav-link"><i data-lucide="thermometer"></i> Ventilation</a>
+          <a href="./settings.html" class="nav-link"><i data-lucide="settings"></i> Configuration</a>
+          <a href="https://github.com/PolgeBenjamin/MeteoInsight-Pro" target="_blank" class="nav-link github-link"><i data-lucide="github"></i> GitHub</a>
+        </nav>
+      </div>
+      
+      <div class="header-controls">
+        <div class="horizon-selector">
+          <button class="horizon-btn active" data-horizon="3">3h</button>
+          <button class="horizon-btn" data-horizon="6">6h</button>
+          <button class="horizon-btn" data-horizon="12">12h</button>
+          <button class="horizon-btn" data-horizon="24">24h</button>
+        </div>
+        <button id="refresh-btn" class="icon-btn" title="Recalculer les prévisions">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+      </div>
+    </header>
+
+
+    <!-- Forecast Page Main Layout Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- LEFT COLUMN: Method 2 (Statistical Heuristic) -->
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="compass"></i>
+          <h2>Méthode 2 : Analyse des Tendances</h2>
+        </div>
+        
+        <div class="card highlight-card forecast-card" id="m2-card">
+          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);"></div>
+          <div class="card-header">
+            <span class="sensor-source">Règles Physiques Empiriques</span>
+            <span class="badge badge-accent">Physique</span>
+          </div>
+          <div class="card-body">
+            <div class="forecast-result-wrapper">
+              <div class="forecast-icon-container">
+                <i data-lucide="sun" id="m2-icon" class="large-forecast-icon"></i>
+              </div>
+              <div class="forecast-details">
+                <span class="forecast-label" id="m2-horizon-label">Prédiction (+3h)</span>
+                <h3 class="forecast-value" id="m2-value">--</h3>
+              </div>
+            </div>
+            
+            <p class="forecast-description" id="m2-desc">Calcul des gradients de pression et d'hygrométrie en cours...</p>
+            
+            <!-- Trend Indicators Grid -->
+            <div class="trends-summary-grid">
+              <div class="trend-item">
+                <span class="trend-label" id="trend-press-label">Variation Pression (3h)</span>
+                <span class="trend-value" id="trend-press">--</span>
+              </div>
+              <div class="trend-item">
+                <span class="trend-label" id="trend-hum-label">Variation Humidité (3h)</span>
+                <span class="trend-value" id="trend-hum">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- RIGHT COLUMN: Method 3 (Machine Learning KNN) -->
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="brain"></i>
+          <h2>Méthode 3 : Machine Learning</h2>
+        </div>
+        
+        <div class="card highlight-card forecast-card" id="m3-card">
+          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(217, 70, 239, 0.05) 100%);"></div>
+          <div class="card-header">
+            <span class="sensor-source">K-Nearest Neighbors (KNN) Local</span>
+            <span class="badge badge-netatmo">IA</span>
+          </div>
+          <div class="card-body">
+            <div class="forecast-result-wrapper">
+              <div class="forecast-icon-container">
+                <i data-lucide="cloud-sun" id="m3-icon" class="large-forecast-icon"></i>
+              </div>
+              <div class="forecast-details">
+                <span class="forecast-label" id="m3-horizon-label">Prédiction ML (+3h)</span>
+                <h3 class="forecast-value" id="m3-value">--</h3>
+              </div>
+            </div>
+
+            <!-- Confidence Bar -->
+            <div class="confidence-container">
+              <div class="confidence-header">
+                <span>Indice de confiance</span>
+                <span id="m3-confidence">0%</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="m3-confidence-bar" style="width: 0%; background: var(--color-primary);"></div>
+              </div>
+            </div>
+            
+            <!-- ML Meta details -->
+            <div class="trends-summary-grid">
+              <div class="trend-item">
+                <span class="trend-label">Algorithme</span>
+                <span class="trend-value">KNN (K=5)</span>
+              </div>
+              <div class="trend-item">
+                <span class="trend-label">Échantillons d'entraînement</span>
+                <span class="trend-value" id="m3-dataset-size">-- points</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Full Width Row: Sensor History Chart -->
+    <section class="chart-section" style="margin-top: 2rem;">
+      <div class="section-title" style="margin-bottom: 1rem;">
+        <i data-lucide="activity"></i>
+        <h2>Historique des Gradients (Dernières 24h)</h2>
+      </div>
+      
+      <div class="card chart-card" style="padding: 1.5rem; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); border-radius: 20px;">
+        <div class="chart-container" style="position: relative; height:300px; width:100%;">
+          <canvas id="trendsChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer info -->
+    <footer class="app-footer">
+      <p>MeteoInsight-Pro &bull; Modélisation de prévisions locales &bull; Usage Personnel Uniquement</p>
+    </footer>
+
+  </div>
+
+  <!-- Frontend logic script -->
+  <script src="forecasts.js?v=2"></script>
+</body>
+</html>

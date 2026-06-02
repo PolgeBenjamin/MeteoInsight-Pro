@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeteoInsight-Pro | Présence</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Chart.js for premium history chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Header Area -->
+    <header class="dashboard-header">
+      <div class="header-main">
+        <div class="logo-area">
+          <div class="pulse-indicator status-online" id="connection-status"></div>
+          <h1>MeteoInsight-Pro</h1>
+          <span class="badge badge-accent">Présence</span>
+        </div>
+        <div class="clock-area">
+          <div id="live-time">00:00:00</div>
+          <div id="live-date">--/--/----</div>
+        </div>
+        <nav class="header-nav">
+          <a href="./" class="nav-link"><i data-lucide="layout"></i> Tableau de bord</a>
+          <a href="./forecasts.html" class="nav-link"><i data-lucide="trending-up"></i> Prévisions</a>
+          <a href="./presence.html" class="nav-link active"><i data-lucide="user-check"></i> Présence</a>
+          <a href="./heat.html" class="nav-link"><i data-lucide="thermometer"></i> Ventilation</a>
+          <a href="./settings.html" class="nav-link"><i data-lucide="settings"></i> Configuration</a>
+          <a href="https://github.com/PolgeBenjamin/MeteoInsight-Pro" target="_blank" class="nav-link github-link"><i data-lucide="github"></i> GitHub</a>
+        </nav>
+      </div>
+      
+      <div class="header-controls">
+        <button id="refresh-btn" class="icon-btn" title="Rafraîchir les données de présence">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+      </div>
+    </header>
+
+
+    <!-- Time Slider Control (Interactive Sweep) -->
+    <div class="slider-control-card">
+      <div class="slider-header">
+        <div class="slider-title-area">
+          <i data-lucide="clock" class="icon-accent"></i>
+          <h2>Horloge Interactive 24h</h2>
+          <span class="badge badge-netatmo" id="time-display">12h00</span>
+        </div>
+        <div class="slider-actions">
+          <button id="play-btn" class="icon-btn accent-btn" title="Lancer le balayage automatique">
+            <i data-lucide="play"></i>
+          </button>
+        </div>
+      </div>
+      <div class="horizon-selector" id="day-selector" style="margin-bottom: 1.25rem; width: max-content; padding: 0.15rem;">
+        <button class="horizon-btn active" data-day="0">Lun</button>
+        <button class="horizon-btn" data-day="1">Mar</button>
+        <button class="horizon-btn" data-day="2">Mer</button>
+        <button class="horizon-btn" data-day="3">Jeu</button>
+        <button class="horizon-btn" data-day="4">Ven</button>
+        <button class="horizon-btn" data-day="5">Sam</button>
+        <button class="horizon-btn" data-day="6">Dim</button>
+      </div>
+      <div class="slider-container-wrapper">
+        <input type="range" id="time-slider" min="0" max="23" value="12" class="time-range-slider">
+        <div class="slider-ticks">
+          <span>Minuit</span>
+          <span>04h</span>
+          <span>08h</span>
+          <span>Midi</span>
+          <span>16h</span>
+          <span>20h</span>
+          <span>Minuit</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Layout Grid -->
+    <main class="dashboard-grid" style="margin-top: 1.5rem;">
+      
+      <!-- LEFT COLUMN: SVG Floor Plan with Heatmap Overlays -->
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="map"></i>
+          <h2>Plan Thermique de Présence</h2>
+        </div>
+        
+        <div class="card plan-card" id="floor-plan-container" style="padding: 1.5rem;">
+          <div class="plan-interactive-wrapper">
+            <svg viewBox="0 0 500 500" class="floor-plan-svg" id="house-svg">
+              <defs>
+                <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+                </pattern>
+                
+                <!-- Heatmap Color Gradients -->
+                <radialGradient id="heat-low" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.3" />
+                  <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0" />
+                </radialGradient>
+                <radialGradient id="heat-med" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#d946ef" stop-opacity="0.45" />
+                  <stop offset="100%" stop-color="#d946ef" stop-opacity="0" />
+                </radialGradient>
+                <radialGradient id="heat-high" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#ef4444" stop-opacity="0.6" />
+                  <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              
+              <!-- Blueprint grid overlay -->
+              <rect width="100%" height="100%" fill="url(#grid)" rx="16" />
+
+              <!-- Rooms Groups (Drawn dynamically) -->
+              <g id="svg-rooms-group"></g>
+            </svg>
+          </div>
+          
+          <div class="legend-area" style="display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255,255,255,0.08); display: inline-block;"></span>
+              <span>Inoccupé (<20%)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(14, 165, 233, 0.4); display: inline-block; box-shadow: 0 0 6px rgba(14, 165, 233, 0.4);"></span>
+              <span>Modéré (20-50%)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(217, 70, 239, 0.5); display: inline-block; box-shadow: 0 0 6px rgba(217, 70, 239, 0.5);"></span>
+              <span>Élevé (50-80%)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(239, 68, 68, 0.6); display: inline-block; box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);"></span>
+              <span>Fréquenté (>80%)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- RIGHT COLUMN: Room Analytics & Probabilities Graph -->
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="brain"></i>
+          <h2>Analyse IA par Pièce</h2>
+        </div>
+        
+        <div class="card highlight-card forecast-card" id="analytics-card" style="margin-bottom: 1.5rem;">
+          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(217, 70, 239, 0.05) 100%);"></div>
+          <div class="card-header">
+            <span class="sensor-source" id="active-room-label">Sélectionnez une pièce sur le plan</span>
+            <span class="badge badge-accent" id="room-status-badge">Estimation ML</span>
+          </div>
+          <div class="card-body" style="gap: 1.2rem;">
+            <!-- Key Stats Grid -->
+            <div class="trends-summary-grid" style="margin-top: 0;">
+              <div class="trend-item">
+                <span class="trend-label">Affluence Maximale</span>
+                <span class="trend-value" id="stats-most-used">--</span>
+                <span class="sub-label" id="stats-most-used-pct" style="font-size: 0.65rem; color: var(--color-success); font-weight: 600; margin-top: 0.1rem;">Probabilité : --</span>
+              </div>
+              <div class="trend-item">
+                <span class="trend-label">Affluence Minimale</span>
+                <span class="trend-value" id="stats-least-used">--</span>
+                <span class="sub-label" id="stats-least-used-pct" style="font-size: 0.65rem; color: var(--text-dim); font-weight: 600; margin-top: 0.1rem;">Probabilité : --</span>
+              </div>
+            </div>
+
+            <!-- Custom ML Fact -->
+            <div class="confidence-container" style="padding: 0.85rem 1rem;">
+              <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <i data-lucide="sparkles" style="color: var(--color-accent); width: 18px; height: 18px; flex-shrink: 0; margin-top: 0.1rem;"></i>
+                <div>
+                  <h4 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.15rem;">Conseil Domotique</h4>
+                  <p id="room-advice" style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">Sélectionnez une pièce pour obtenir des recommandations d'automatisation d'éclairage ou de chauffage.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 24h occupancy probability curve -->
+        <div class="card chart-card" style="padding: 1.2rem; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); border-radius: 20px;">
+          <h3 style="font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem; font-family: var(--font-display); display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="activity" style="width:16px; height:16px; color: var(--color-accent);"></i>
+            Rythme d'activité sur 24 heures
+          </h3>
+          <div class="chart-container" style="position: relative; height:200px; width:100%;">
+            <canvas id="occupancyChart"></canvas>
+          </div>
+        </div>
+      </section>
+      
+    </main>
+
+    <!-- Footer info -->
+    <footer class="app-footer">
+      <p>MeteoInsight-Pro &bull; Analyse prédictive de présence &bull; Usage Personnel Uniquement</p>
+    </footer>
+
+  </div>
+
+  <!-- Frontend logic script -->
+  <script src="presence.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MeteoInsight-Pro | Ventilation</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Chart.js for premium projection chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Header Area -->
+    <header class="dashboard-header">
+      <div class="header-main">
+        <div class="logo-area">
+          <div class="pulse-indicator status-online" id="connection-status"></div>
+          <h1>MeteoInsight-Pro</h1>
+          <span class="badge badge-accent">Ventilation</span>
+        </div>
+        <div class="clock-area">
+          <div id="live-time">00:00:00</div>
+          <div id="live-date">--/--/----</div>
+        </div>
+        <nav class="header-nav">
+          <a href="./" class="nav-link"><i data-lucide="layout"></i> Tableau de bord</a>
+          <a href="./forecasts.html" class="nav-link"><i data-lucide="trending-up"></i> Prévisions</a>
+          <a href="./presence.html" class="nav-link"><i data-lucide="user-check"></i> Présence</a>
+          <a href="./heat.html" class="nav-link active"><i data-lucide="thermometer"></i> Ventilation</a>
+          <a href="./settings.html" class="nav-link"><i data-lucide="settings"></i> Configuration</a>
+          <a href="https://github.com/PolgeBenjamin/MeteoInsight-Pro" target="_blank" class="nav-link github-link"><i data-lucide="github"></i> GitHub</a>
+        </nav>
+      </div>
+      
+      <div class="header-controls">
+        <button id="refresh-btn" class="icon-btn" title="Rafraîchir les prévisions thermiques">
+          <i data-lucide="refresh-cw"></i>
+        </button>
+      </div>
+    </header>
+
+
+    <!-- Room Selector Pills (Drawn dynamically) -->
+    <div class="horizon-selector" id="room-selector" style="margin-top: 1.5rem; margin-bottom: 0rem; padding: 0.2rem; width: max-content;"></div>
+
+    <!-- Global Recommendation Banner -->
+    <div class="card global-recommendation-card" style="margin-top: 1.5rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%); border: 1px solid rgba(255, 255, 255, 0.06); padding: 1.5rem 2rem;">
+      <div class="card-bg-gradient" style="background: radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);"></div>
+      <div class="global-rec-content" style="display: flex; flex-direction: column; gap: 1rem; align-items: center; text-align: center; position: relative; z-index: 1;">
+        <div class="global-rec-header" style="display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary); font-size: 0.85rem;">
+          <i data-lucide="sparkles" style="color: var(--color-accent); width: 18px; height: 18px;"></i>
+          <span>Recommandation Générale pour la Maison</span>
+        </div>
+        <div class="global-rec-body" style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; justify-content: center; width: 100%;">
+          <div class="global-time-badge" style="font-family: var(--font-display); font-size: 3.5rem; font-weight: 800; color: var(--text-primary); background: linear-gradient(135deg, #f8fafc 30%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(16, 185, 129, 0.25)); line-height: 1;" id="global-crossing-time">
+            --:--
+          </div>
+          <div class="global-rec-details" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.25rem;">
+            <span class="pred-countdown" id="global-crossing-countdown" style="font-size: 1.2rem; font-weight: 700; color: var(--color-success);">--</span>
+            <p id="global-rec-desc" style="font-size: 0.85rem; color: var(--text-muted); max-width: 650px; line-height: 1.4;">
+              Chargement des prévisions globales...
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Layout Grid -->
+    <main class="dashboard-grid" style="margin-top: 1.5rem;">
+      
+      <!-- LEFT COLUMN: Hublot Indicator, Recommendations and Stats -->
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="info"></i>
+          <h2>Statut d'Aération Actuel</h2>
+        </div>
+        
+        <!-- Window Hublot Card -->
+        <div class="card window-hublot-card" id="window-hublot-card">
+          <div class="card-bg-gradient"></div>
+          <div class="hublot-content">
+            <!-- Glassmorphic glowing hublot -->
+            <div class="hublot-circle" id="hublot-circle">
+              <div class="hublot-inner">
+                <i data-lucide="wind" class="hublot-icon" id="hublot-icon"></i>
+                <span class="hublot-status-text" id="hublot-status-text">Calcul...</span>
+              </div>
+            </div>
+            <div class="hublot-details">
+              <h3 id="hublot-title">Fenêtres Fermées</h3>
+              <p id="hublot-desc">Analyse en cours...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Assistant / Advice Card -->
+        <div class="card highlight-card" id="advice-card" style="margin-top: 1.5rem;">
+          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%);"></div>
+          <div class="card-header">
+            <span class="sensor-source">Conseiller Thermique</span>
+            <span class="badge badge-accent">IA Locale</span>
+          </div>
+          <div class="card-body">
+            <div class="advice-content-container">
+              <p id="advice-text" style="font-size: 0.95rem; line-height: 1.5; color: var(--text-primary); font-weight: 500;">
+                Calcul des recommandations en cours...
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time Comparison Stats Grid -->
+        <div class="trends-summary-grid" style="margin-top: 1.5rem;">
+          <div class="trend-item">
+            <span class="trend-label" id="room-stats-label">Intérieur (Salon)</span>
+            <span class="trend-value" id="val-tin">-- °C</span>
+            <span class="sub-label" id="val-hin">Humidité : -- %</span>
+          </div>
+          <div class="trend-item">
+            <span class="trend-label">Extérieur (Maison)</span>
+            <span class="trend-value" id="val-tout">-- °C</span>
+            <span class="sub-label" id="val-hout">Humidité : -- %</span>
+          </div>
+          <div class="trend-item">
+            <span class="trend-label">Humidité Absolue Int.</span>
+            <span class="trend-value" id="val-ah-in">-- g/m³</span>
+            <span class="sub-label">Quantité d'eau réelle</span>
+          </div>
+          <div class="trend-item">
+            <span class="trend-label">Humidité Absolue Ext.</span>
+            <span class="trend-value" id="val-ah-out">-- g/m³</span>
+            <span class="sub-label">Quantité d'eau réelle</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: ML Predictions & Chart -->
+      <section class="grid-section">
+        <div class="section-title">
+          <i data-lucide="brain"></i>
+          <h2>Prédictions IA & ML de Température</h2>
+        </div>
+        
+        <!-- Next Crossing Predictor Card -->
+        <div class="card highlight-card forecast-card" id="crossing-predictor-card" style="margin-bottom: 1.5rem;">
+          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(217, 70, 239, 0.05) 100%);"></div>
+          <div class="card-header">
+            <span class="sensor-source">Prochain Croisement de Courbes</span>
+            <span class="badge badge-netatmo">Modèle ML</span>
+          </div>
+          <div class="card-body">
+            <div class="crossing-prediction-display">
+              <div class="prediction-large" id="crossing-time-display">--:--</div>
+              <div class="prediction-meta">
+                <span class="pred-label" id="crossing-type-label">Prochaine opportunité</span>
+                <span class="pred-countdown" id="crossing-countdown-display">--</span>
+              </div>
+            </div>
+            <div class="confidence-container" style="padding: 0.85rem 1rem; margin-top: 1rem;">
+              <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <i data-lucide="sparkles" style="color: var(--color-accent); width: 18px; height: 18px; flex-shrink: 0; margin-top: 0.1rem;"></i>
+                <div>
+                  <h4 style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.15rem;">Modèle Prédictif</h4>
+                  <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;" id="ml-details-text">
+                    Régression linéaire sur historique HA (7j) pour estimer la déperdition thermique de l'habitat.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 24h temperature projection Chart -->
+        <div class="card chart-card" style="padding: 1.5rem; border-radius: 20px;">
+          <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 1rem; font-family: var(--font-display); display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="activity" style="width:16px; height:16px; color: var(--color-accent);"></i>
+            Projection Thermique 24 Heures (Extérieur vs Intérieur Prédit)
+          </h3>
+          <div class="chart-container" style="position: relative; height:240px; width:100%;">
+            <canvas id="tempProjectionChart"></canvas>
+          </div>
+        </div>
+      </section>
+      
+    </main>
+
+    <!-- Footer info -->
+    <footer class="app-footer">
+      <p>MeteoInsight-Pro &bull; Modélisation et conseils de ventilation &bull; Usage Personnel Uniquement</p>
+    </footer>
+
+  </div>
+
+  <!-- Frontend logic script -->
+  <script src="heat.js?v=2"></script>
+</body>
+</html>
