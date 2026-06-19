@@ -278,16 +278,22 @@ async function fetchWeatherData() {
 
 // Connection Status visual styles
 function setConnectionStatus(status) {
-  elements.connectionStatus.className = 'pulse-indicator';
-  elements.refreshBtn.querySelector('i').classList.remove('spin');
+  if (elements.connectionStatus) {
+    elements.connectionStatus.className = 'pulse-indicator';
+  }
+  
+  const refreshIcon = elements.refreshBtn ? (elements.refreshBtn.querySelector('i') || elements.refreshBtn.querySelector('svg')) : null;
+  if (refreshIcon) {
+    refreshIcon.classList.remove('spin');
+  }
   
   if (status === 'online') {
-    elements.connectionStatus.classList.add('status-online');
+    if (elements.connectionStatus) elements.connectionStatus.classList.add('status-online');
   } else if (status === 'loading') {
-    elements.connectionStatus.classList.add('status-loading');
-    elements.refreshBtn.querySelector('i').classList.add('spin');
+    if (elements.connectionStatus) elements.connectionStatus.classList.add('status-loading');
+    if (refreshIcon) refreshIcon.classList.add('spin');
   } else {
-    elements.connectionStatus.classList.add('status-error');
+    if (elements.connectionStatus) elements.connectionStatus.classList.add('status-error');
   }
 }
 

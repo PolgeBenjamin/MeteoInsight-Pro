@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MeteoInsight-Pro | Prévisions</title>
+  <title>MeteoInsight-Pro | Prévisions AROME & ARPEGE</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,8 +16,231 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
   
-  <!-- Chart.js for premium history chart -->
+  <!-- Theme Handler -->
+  <script src="theme.js"></script>
+  
+  <!-- Chart.js for premium weather charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Local styles for AROME/ARPEGE UI */
+    .model-selector, .mode-selector {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 0.25rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 9999px;
+    }
+    
+    .model-btn, .mode-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 0.4rem 1.1rem;
+      border-radius: 9999px;
+      font-family: var(--font-display);
+      font-weight: 500;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+    }
+    
+    .model-btn.active {
+      background: var(--color-primary);
+      color: white;
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    }
+    
+    .mode-btn.active {
+      background: var(--color-secondary);
+      color: white;
+      box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+    }
+    
+    .model-btn:hover:not(.active), .mode-btn:hover:not(.active) {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .model-info-banner {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0%, rgba(99, 102, 241, 0.03) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      margin-bottom: 2rem;
+    }
+
+    .info-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .info-stat .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .info-stat .stat-value {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .forecast-table-container {
+      background: rgba(17, 24, 39, 0.45);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+      box-shadow: var(--card-shadow);
+    }
+
+    .table-scroll {
+      max-height: 480px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+    }
+
+    .table-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .table-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 99px;
+    }
+
+    .forecast-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .forecast-table th {
+      position: sticky;
+      top: 0;
+      background: #0f1524;
+      padding: 1rem 1.25rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 10;
+    }
+
+    .forecast-table td {
+      padding: 0.85rem 1.25rem;
+      font-size: 0.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      vertical-align: middle;
+    }
+
+    .forecast-table tbody tr {
+      transition: var(--transition-smooth);
+    }
+
+    .forecast-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .day-cell {
+      font-weight: 600;
+      color: var(--color-secondary);
+      font-family: var(--font-display);
+    }
+
+    .hour-cell {
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .weather-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .weather-cell i, .weather-cell svg {
+      width: 18px;
+      height: 18px;
+      color: var(--color-warning);
+    }
+
+    .temp-cell {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .temp-cell.warm { color: #f59e0b; }
+    .temp-cell.cold { color: #38bdf8; }
+
+    .wind-dir-arrow {
+      display: inline-block;
+      transition: transform 0.3s ease;
+      color: var(--color-secondary);
+    }
+
+    .chart-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .chart-tab-btn {
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.015);
+      color: var(--text-muted);
+      padding: 0.35rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: var(--font-body);
+      transition: var(--transition-smooth);
+    }
+
+    .chart-tab-btn.active {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: rgba(99, 102, 241, 0.3);
+      color: var(--color-primary);
+    }
+
+    .precip-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .precip-none {
+      color: var(--text-dim);
+    }
+    
+    .precip-light {
+      background: rgba(14, 165, 233, 0.1);
+      color: #38bdf8;
+    }
+    
+    .precip-heavy {
+      background: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+      font-weight: 600;
+    }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -28,7 +251,7 @@
         <div class="logo-area">
           <div class="pulse-indicator status-online" id="connection-status"></div>
           <h1>MeteoInsight-Pro</h1>
-          <span class="badge badge-accent">Prévisions</span>
+          <span class="badge badge-accent">Météo France</span>
         </div>
         <div class="clock-area">
           <div id="live-time">00:00:00</div>
@@ -37,7 +260,6 @@
         <nav class="header-nav">
           <a href="./" class="nav-link"><i data-lucide="layout"></i> Tableau de bord</a>
           <a href="./forecasts.html" class="nav-link active"><i data-lucide="trending-up"></i> Prévisions</a>
-          <a href="./presence.html" class="nav-link"><i data-lucide="user-check"></i> Présence</a>
           <a href="./heat.html" class="nav-link"><i data-lucide="thermometer"></i> Ventilation</a>
           <a href="./settings.html" class="nav-link"><i data-lucide="settings"></i> Configuration</a>
           <a href="https://github.com/PolgeBenjamin/MeteoInsight-Pro" target="_blank" class="nav-link github-link"><i data-lucide="github"></i> GitHub</a>
@@ -45,136 +267,92 @@
       </div>
       
       <div class="header-controls">
-        <div class="horizon-selector">
-          <button class="horizon-btn active" data-horizon="3">3h</button>
-          <button class="horizon-btn" data-horizon="6">6h</button>
-          <button class="horizon-btn" data-horizon="12">12h</button>
-          <button class="horizon-btn" data-horizon="24">24h</button>
+        <div class="model-selector">
+          <button class="model-btn active" data-model="arome">AROME (1.3km)</button>
+          <button class="model-btn" data-model="arpege">ARPEGE (10km)</button>
         </div>
-        <button id="refresh-btn" class="icon-btn" title="Recalculer les prévisions">
+        
+        <div class="mode-selector">
+          <button class="mode-btn active" data-mode="normal">Vue Normale</button>
+          <button class="mode-btn" data-mode="detailed">Vue Détaillée</button>
+        </div>
+
+        <button id="refresh-btn" class="icon-btn" title="Rafraîchir les prévisions">
           <i data-lucide="refresh-cw"></i>
         </button>
       </div>
     </header>
 
+    <!-- Model description banner -->
+    <section class="model-info-banner">
+      <div class="info-stat">
+        <span class="stat-label">Modèle Actif</span>
+        <span class="stat-value" id="info-model-name">AROME (Météo France HD)</span>
+      </div>
+      <div class="info-stat">
+        <span class="stat-label">Résolution de grille</span>
+        <span class="stat-value" id="info-model-resolution">1.3 km (Ultra Haute Résolution)</span>
+      </div>
+      <div class="info-stat">
+        <span class="stat-label">Horizon Temporel</span>
+        <span class="stat-value" id="info-model-horizon">~ 48 Heures</span>
+      </div>
+      <div class="info-stat">
+        <span class="stat-label">Dernier Run API</span>
+        <span class="stat-value" id="info-model-updated">Calcul récent</span>
+      </div>
+    </section>
 
-    <!-- Forecast Page Main Layout Grid -->
-    <main class="dashboard-grid">
-      
-      <!-- LEFT COLUMN: Method 2 (Statistical Heuristic) -->
-      <section class="grid-section">
-        <div class="section-title">
-          <i data-lucide="compass"></i>
-          <h2>Méthode 2 : Analyse des Tendances</h2>
-        </div>
-        
-        <div class="card highlight-card forecast-card" id="m2-card">
-          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%);"></div>
-          <div class="card-header">
-            <span class="sensor-source">Règles Physiques Empiriques</span>
-            <span class="badge badge-accent">Physique</span>
-          </div>
-          <div class="card-body">
-            <div class="forecast-result-wrapper">
-              <div class="forecast-icon-container">
-                <i data-lucide="sun" id="m2-icon" class="large-forecast-icon"></i>
-              </div>
-              <div class="forecast-details">
-                <span class="forecast-label" id="m2-horizon-label">Prédiction (+3h)</span>
-                <h3 class="forecast-value" id="m2-value">--</h3>
-              </div>
-            </div>
-            
-            <p class="forecast-description" id="m2-desc">Calcul des gradients de pression et d'hygrométrie en cours...</p>
-            
-            <!-- Trend Indicators Grid -->
-            <div class="trends-summary-grid">
-              <div class="trend-item">
-                <span class="trend-label" id="trend-press-label">Variation Pression (3h)</span>
-                <span class="trend-value" id="trend-press">--</span>
-              </div>
-              <div class="trend-item">
-                <span class="trend-label" id="trend-hum-label">Variation Humidité (3h)</span>
-                <span class="trend-value" id="trend-hum">--</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      <!-- RIGHT COLUMN: Method 3 (Machine Learning KNN) -->
-      <section class="grid-section">
-        <div class="section-title">
-          <i data-lucide="brain"></i>
-          <h2>Méthode 3 : Machine Learning</h2>
-        </div>
-        
-        <div class="card highlight-card forecast-card" id="m3-card">
-          <div class="card-bg-gradient" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(217, 70, 239, 0.05) 100%);"></div>
-          <div class="card-header">
-            <span class="sensor-source">K-Nearest Neighbors (KNN) Local</span>
-            <span class="badge badge-netatmo">IA</span>
-          </div>
-          <div class="card-body">
-            <div class="forecast-result-wrapper">
-              <div class="forecast-icon-container">
-                <i data-lucide="cloud-sun" id="m3-icon" class="large-forecast-icon"></i>
-              </div>
-              <div class="forecast-details">
-                <span class="forecast-label" id="m3-horizon-label">Prédiction ML (+3h)</span>
-                <h3 class="forecast-value" id="m3-value">--</h3>
-              </div>
-            </div>
+    <!-- Main Forecast Table Grid -->
+    <section class="grid-section">
+      <div class="section-title" style="margin-bottom: 1rem;">
+        <i data-lucide="calendar"></i>
+        <h2>Prévisions Heure par Heure</h2>
+      </div>
 
-            <!-- Confidence Bar -->
-            <div class="confidence-container">
-              <div class="confidence-header">
-                <span>Indice de confiance</span>
-                <span id="m3-confidence">0%</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="m3-confidence-bar" style="width: 0%; background: var(--color-primary);"></div>
-              </div>
-            </div>
-            
-            <!-- ML Meta details -->
-            <div class="trends-summary-grid">
-              <div class="trend-item">
-                <span class="trend-label">Algorithme</span>
-                <span class="trend-value">KNN (K=5)</span>
-              </div>
-              <div class="trend-item">
-                <span class="trend-label">Échantillons d'entraînement</span>
-                <span class="trend-value" id="m3-dataset-size">-- points</span>
-              </div>
-            </div>
-          </div>
+      <div class="forecast-table-container">
+        <div class="table-scroll">
+          <table class="forecast-table" id="forecast-table">
+            <thead>
+              <tr id="table-headers">
+                <!-- Drawn dynamically based on mode -->
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Drawn dynamically -->
+            </tbody>
+          </table>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
 
     <!-- Bottom Full Width Row: Sensor History Chart -->
-    <section class="chart-section" style="margin-top: 2rem;">
-      <div class="section-title" style="margin-bottom: 1rem;">
-        <i data-lucide="activity"></i>
-        <h2>Historique des Gradients (Dernières 24h)</h2>
+    <section class="chart-section">
+      <div class="section-title" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="activity"></i>
+          <h2>Visualisation Graphique</h2>
+        </div>
+        <div class="chart-controls" id="chart-controls-tabs">
+          <!-- Drawn dynamically in Detailed mode -->
+        </div>
       </div>
       
       <div class="card chart-card" style="padding: 1.5rem; background: rgba(255,255,255,0.015); border: 1px solid rgba(255,255,255,0.04); border-radius: 20px;">
-        <div class="chart-container" style="position: relative; height:300px; width:100%;">
-          <canvas id="trendsChart"></canvas>
+        <div class="chart-container" style="position: relative; height:320px; width:100%;">
+          <canvas id="weatherChart"></canvas>
         </div>
       </div>
     </section>
 
     <!-- Footer info -->
     <footer class="app-footer">
-      <p>MeteoInsight-Pro &bull; Modélisation de prévisions locales &bull; Usage Personnel Uniquement</p>
+      <p>MeteoInsight-Pro &bull; Modèles Météo France AROME & ARPEGE &bull; Open-Meteo API</p>
     </footer>
 
   </div>
 
   <!-- Frontend logic script -->
-  <script src="forecasts.js?v=2"></script>
+  <script src="forecasts.js?v=3"></script>
 </body>
 </html>

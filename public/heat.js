@@ -269,6 +269,9 @@ function updateHeatUI(data) {
     } else if (current.outdoorTemp > current.indoorTemp) {
       elements.hublotTitle.textContent = 'Fenêtre Close';
       elements.hublotDesc.textContent = `Il fait plus chaud dehors qu'à l'intérieur du ${roomData.label}. Gardez fermé pour bloquer le chaud.`;
+    } else if (current.isHumidityFavorable === false) {
+      elements.hublotTitle.textContent = 'Air Extérieur Humide';
+      elements.hublotDesc.textContent = `Bien que frais dehors, l'air extérieur est trop humide (HA : ${current.outdoorAH.toFixed(1)} g/m³ vs ${current.indoorAH.toFixed(1)} g/m³).`;
     } else {
       elements.hublotTitle.textContent = 'Aération Stable';
       elements.hublotDesc.textContent = `Températures stables dans le ${roomData.label}. Ouvrez brièvement uniquement pour régénérer l'oxygène.`;
@@ -347,9 +350,12 @@ function updateGlobalRecommendation(data) {
 
   if (!timeEl || !countdownEl || !descEl) return;
 
+  const isLightTheme = document.body.classList.contains('light-theme');
+  const gradientStart = isLightTheme ? '#1d1d1f' : '#f8fafc';
+
   if (earliestOpen) {
     timeEl.textContent = earliestOpen.timeLabel;
-    timeEl.style.background = 'linear-gradient(135deg, #f8fafc 30%, #10b981 100%)';
+    timeEl.style.background = `linear-gradient(135deg, ${gradientStart} 30%, #10b981 100%)`;
     timeEl.style.webkitBackgroundClip = 'text';
     timeEl.style.webkitTextFillColor = 'transparent';
     countdownEl.textContent = `Ouverture conseillée : ${earliestOpen.countdown}`;
@@ -357,7 +363,7 @@ function updateGlobalRecommendation(data) {
     descEl.textContent = `Créneau d'aération générale de la maison. Commencez par ouvrir la fenêtre du ${earliestOpen.label} dès qu'il fait ${earliestOpen.temp}°C dehors pour faire entrer l'air frais.`;
   } else if (latestClose) {
     timeEl.textContent = latestClose.timeLabel;
-    timeEl.style.background = 'linear-gradient(135deg, #f8fafc 30%, #ef4444 100%)';
+    timeEl.style.background = `linear-gradient(135deg, ${gradientStart} 30%, #ef4444 100%)`;
     timeEl.style.webkitBackgroundClip = 'text';
     timeEl.style.webkitTextFillColor = 'transparent';
     countdownEl.textContent = `Fermeture conseillée : ${latestClose.countdown}`;
@@ -367,7 +373,7 @@ function updateGlobalRecommendation(data) {
     const currentlyFavorableRooms = rooms.filter(r => r.current.shouldOpen);
     if (currentlyFavorableRooms.length > 0) {
       timeEl.textContent = "OUVERT";
-      timeEl.style.background = 'linear-gradient(135deg, #f8fafc 30%, #10b981 100%)';
+      timeEl.style.background = `linear-gradient(135deg, ${gradientStart} 30%, #10b981 100%)`;
       timeEl.style.webkitBackgroundClip = 'text';
       timeEl.style.webkitTextFillColor = 'transparent';
       countdownEl.textContent = "Aération en cours";
@@ -375,7 +381,7 @@ function updateGlobalRecommendation(data) {
       descEl.textContent = `Il est actuellement avantageux d'aérer la maison. Les pièces favorables sont : ${currentlyFavorableRooms.map(r => r.label).join(', ')}.`;
     } else {
       timeEl.textContent = "FERMÉ";
-      timeEl.style.background = 'linear-gradient(135deg, #f8fafc 30%, #64748b 100%)';
+      timeEl.style.background = `linear-gradient(135deg, ${gradientStart} 30%, #64748b 100%)`;
       timeEl.style.webkitBackgroundClip = 'text';
       timeEl.style.webkitTextFillColor = 'transparent';
       countdownEl.textContent = "Aucun croisement prévu";
@@ -419,6 +425,14 @@ function drawChart(roomData) {
     projectionChart.update();
     return;
   }
+
+  const isLight = document.body.classList.contains('light-theme');
+  const textColor = isLight ? '#1d1d1f' : '#f8fafc';
+  const mutedColor = isLight ? '#86868b' : '#94a3b8';
+  const gridColor = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
+  const tooltipBg = isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(15, 23, 42, 0.95)';
+  const tooltipBorder = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+  const tooltipText = isLight ? '#1d1d1f' : '#e2e8f0';
 
   const gradTout = ctx.createLinearGradient(0, 0, 0, 200);
   gradTout.addColorStop(0, 'rgba(14, 165, 233, 0.25)');
@@ -469,11 +483,11 @@ function drawChart(roomData) {
       scales: {
         x: {
           grid: {
-            color: 'rgba(255, 255, 255, 0.04)',
+            color: gridColor,
             borderColor: 'transparent'
           },
           ticks: {
-            color: '#94a3b8',
+            color: mutedColor,
             font: {
               family: 'Inter, sans-serif',
               size: 10
@@ -483,11 +497,11 @@ function drawChart(roomData) {
         },
         y: {
           grid: {
-            color: 'rgba(255, 255, 255, 0.04)',
+            color: gridColor,
             borderColor: 'transparent'
           },
           ticks: {
-            color: '#94a3b8',
+            color: mutedColor,
             font: {
               family: 'Inter, sans-serif',
               size: 10
@@ -500,7 +514,7 @@ function drawChart(roomData) {
         legend: {
           position: 'top',
           labels: {
-            color: '#f8fafc',
+            color: textColor,
             font: {
               family: 'Outfit, sans-serif',
               weight: 500,
@@ -511,10 +525,10 @@ function drawChart(roomData) {
           }
         },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
-          titleColor: '#f8fafc',
-          bodyColor: '#e2e8f0',
-          borderColor: 'rgba(255, 255, 255, 0.08)',
+          backgroundColor: tooltipBg,
+          titleColor: textColor,
+          bodyColor: tooltipText,
+          borderColor: tooltipBorder,
           borderWidth: 1,
           cornerRadius: 12,
           padding: 12,
@@ -581,3 +595,15 @@ function drawChart(roomData) {
 
 // Start everything
 document.addEventListener('DOMContentLoaded', init);
+
+// Redraw chart when theme is toggled
+document.addEventListener('themechange', () => {
+  if (projectionChart) {
+    projectionChart.destroy();
+    projectionChart = null;
+  }
+  const activeRoom = document.querySelector('.room-pill.active')?.getAttribute('data-room-id');
+  if (activeRoom && heatData && heatData.rooms[activeRoom]) {
+    renderChart(heatData.rooms[activeRoom]);
+  }
+});

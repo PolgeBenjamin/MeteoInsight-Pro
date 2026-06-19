@@ -17,7 +17,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const memoryCache = {
   weather: null,
   weatherTime: 0,
-  forecasts: {}, // keyed by horizon
+  forecasts: { data: null, time: 0 },
   presence: null,
   presenceTime: 0,
   heat: null,
@@ -58,6 +58,44 @@ function fetchHAStates() {
     req.setTimeout(5000, () => {
       req.destroy();
       reject(new Error('Request to Home Assistant timed out'));
+    });
+  });
+}
+
+// Helper to fetch JSON from Home Assistant config
+function fetchHAConfig() {
+  return new Promise((resolve, reject) => {
+    const url = `${config.HA_URL}/api/config`;
+    const headers = {
+      'Authorization': `Bearer ${config.HA_TOKEN}`,
+      'Content-Type': 'application/json'
+    };
+
+    const req = http.get(url, { headers }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error('Failed to parse JSON response from Home Assistant config'));
+          }
+        } else {
+          reject(new Error(`Home Assistant API returned status code ${res.statusCode} for config`));
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.setTimeout(5000, () => {
+      req.destroy();
+      reject(new Error('Request to Home Assistant config timed out'));
     });
   });
 }
@@ -153,257 +191,152 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// Endpoint for statistical (M2) and ML (M3) predictions
+// Endpoint for statistical (M2) and ML (M3) predictions -> NOW replaced by AROME and ARPEGE Météo-France forecasts
 app.get('/api/forecasts', async (req, res) => {
-  const horizon = Math.min(24, Math.max(1, parseInt(req.query.horizon) || 3));
   const nowTime = Date.now();
-  const cacheKey = horizon;
-
-  if (memoryCache.forecasts[cacheKey] && (nowTime - memoryCache.forecasts[cacheKey].time < 10 * 60 * 1000)) {
-    return res.json(memoryCache.forecasts[cacheKey].data);
+  
+  if (memoryCache.forecasts.data && (nowTime - memoryCache.forecasts.time < 15 * 60 * 1000)) {
+    return res.json(memoryCache.forecasts.data);
   }
 
   try {
-    const now = new Date();
-    const startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+    let lat = 48.8540661;
+    let lon = 2.7863045;
+    let timezone = 'Europe/Paris';
+
+    try {
+      const haConfig = await fetchHAConfig();
+      if (haConfig.latitude && haConfig.longitude) {
+        lat = haConfig.latitude;
+        lon = haConfig.longitude;
+      }
+      if (haConfig.time_zone) {
+        timezone = haConfig.time_zone;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch config from Home Assistant, using defaults:', e.message);
+    }
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,weather_code,pressure_msl,cloud_cover,wind_speed_10m,wind_gusts_10m,precipitation,wind_direction_10m,direct_radiation,diffuse_radiation&models=meteofrance_arome_france_hd,meteofrance_arpege_europe&timezone=${encodeURIComponent(timezone)}`;
     
-    const startStr = startTime.toISOString();
-    const endStr = now.toISOString();
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Open-Meteo API returned status ${response.status}`);
+    const data = await response.json();
 
-    const fetchHistory = async (entityId) => {
-      const url = `${config.HA_URL}/api/history/period/${startStr}?filter_entity_id=${entityId}&end_time=${endStr}`;
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${config.HA_TOKEN}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      if (!response.ok) throw new Error(`HA API returned ${response.status} for ${entityId}`);
-      const data = await response.json();
-      return data[0] || [];
-    };
-
-    const [pressHistory, humHistory, tempHistory, weatherHistory] = await Promise.all([
-      fetchHistory(config.entities.netatmo_pressure),
-      fetchHistory(config.entities.outdoor_humidity),
-      fetchHistory(config.entities.outdoor_temp),
-      fetchHistory(config.entities.weather_forecast)
-    ]);
-
-    // Align data hourly (168 points)
-    const dataset = [];
-    const hourlyPoints = 168;
-
-    const getStateAt = (history, targetTime) => {
-      let activeState = null;
-      for (const item of history) {
-        const itemTime = new Date(item.last_changed || item.last_updated);
-        if (itemTime <= targetTime) {
-          activeState = item.state;
-        } else {
-          break;
-        }
-      }
-      if (activeState === null && history.length > 0) {
-        activeState = history[0].state;
-      }
-      return activeState;
-    };
-
-    for (let i = 0; i <= hourlyPoints; i++) {
-      const targetTime = new Date(startTime.getTime() + i * 60 * 60 * 1000);
-      
-      const p = parseFloat(getStateAt(pressHistory, targetTime));
-      const h = parseFloat(getStateAt(humHistory, targetTime));
-      const t = parseFloat(getStateAt(tempHistory, targetTime));
-      const w = getStateAt(weatherHistory, targetTime);
-
-      dataset.push({
-        time: targetTime,
-        p: isNaN(p) ? null : p,
-        h: isNaN(h) ? null : h,
-        t: isNaN(t) ? null : t,
-        w: w
-      });
+    const hourly = data.hourly;
+    if (!hourly || !hourly.time) {
+      throw new Error('Malformed hourly data in Open-Meteo response');
     }
 
-    for (let i = horizon; i < dataset.length; i++) {
-      if (dataset[i].p !== null && dataset[i-horizon].p !== null) {
-        dataset[i].dp = dataset[i].p - dataset[i-horizon].p;
-      } else {
-        dataset[i].dp = 0;
-      }
-      if (dataset[i].h !== null && dataset[i-horizon].h !== null) {
-        dataset[i].dh = dataset[i].h - dataset[i-horizon].h;
-      } else {
-        dataset[i].dh = 0;
-      }
-    }
+    const mapWeather = (code) => {
+      if (code === 0) return { label: 'Ensoleillé', icon: 'sun' };
+      if (code === 1) return { label: 'Principalement dégagé', icon: 'cloud-sun' };
+      if (code === 2) return { label: 'Partiellement nuageux', icon: 'cloud-sun' };
+      if (code === 3) return { label: 'Couvert', icon: 'cloud' };
+      if (code === 45 || code === 48) return { label: 'Brouillard', icon: 'cloud-fog' };
+      if (code === 51 || code === 53 || code === 55) return { label: 'Bruine', icon: 'cloud-drizzle' };
+      if (code === 56 || code === 57) return { label: 'Bruine verglaçante', icon: 'cloud-drizzle' };
+      if (code === 61) return { label: 'Pluie faible', icon: 'cloud-rain' };
+      if (code === 63) return { label: 'Pluie modérée', icon: 'cloud-rain' };
+      if (code === 65) return { label: 'Forte pluie', icon: 'cloud-rain' };
+      if (code === 66 || code === 67) return { label: 'Pluie verglaçante', icon: 'cloud-rain' };
+      if (code === 71 || code === 73 || code === 75) return { label: 'Chutes de neige', icon: 'snowflake' };
+      if (code === 77) return { label: 'Grains de neige', icon: 'snowflake' };
+      if (code === 80 || code === 81 || code === 82) return { label: 'Averses de pluie', icon: 'cloud-rain' };
+      if (code === 85 || code === 86) return { label: 'Averses de neige', icon: 'snowflake' };
+      if (code === 95) return { label: 'Orageux', icon: 'cloud-lightning' };
+      if (code === 96 || code === 99) return { label: 'Orage avec grêle', icon: 'cloud-lightning' };
+      return { label: 'Indéterminé', icon: 'help-circle' };
+    };
 
-    const trainingSamples = [];
-    for (let i = horizon; i < dataset.length - horizon; i++) {
-      const current = dataset[i];
-      const future = dataset[i + horizon];
-      
-      if (current.p !== null && current.h !== null && current.t !== null && future.w && future.w !== 'unknown' && future.w !== 'unavailable') {
-        trainingSamples.push({
-          features: [current.p, current.h, current.t, current.dp, current.dh],
-          label: future.w
+    const extractModelData = (suffix) => {
+      const tempKey = `temperature_2m_${suffix}`;
+      const humKey = `relative_humidity_2m_${suffix}`;
+      const presKey = `pressure_msl_${suffix}`;
+      const cloudKey = `cloud_cover_${suffix}`;
+      const precKey = `precipitation_${suffix}`;
+      const speedKey = `wind_speed_10m_${suffix}`;
+      const gustKey = `wind_gusts_10m_${suffix}`;
+      const dirKey = `wind_direction_10m_${suffix}`;
+      const codeKey = `weather_code_${suffix}`;
+      const directKey = `direct_radiation_${suffix}`;
+      const diffuseKey = `diffuse_radiation_${suffix}`;
+
+      const tList = hourly[tempKey] || [];
+
+      const result = [];
+      for (let i = 0; i < tList.length; i++) {
+        if (tList[i] === null || tList[i] === undefined) continue;
+
+        const timeStr = hourly.time[i];
+        const date = new Date(timeStr);
+        
+        // Filter out past hours (keep current hour if it's less than 30 minutes in the past)
+        if (date.getTime() < nowTime - 30 * 60 * 1000) {
+          continue;
+        }
+        
+        let rawCode = hourly[codeKey]?.[i];
+        if (rawCode === null || rawCode === undefined) {
+          const fallbackSuffix = suffix.includes('arome') ? 'meteofrance_arpege_europe' : 'meteofrance_arome_france_hd';
+          rawCode = hourly[`weather_code_${fallbackSuffix}`]?.[i];
+        }
+        
+        if (rawCode === null || rawCode === undefined) {
+          rawCode = 0;
+        }
+
+        const wInfo = mapWeather(rawCode);
+
+        result.push({
+          time: timeStr,
+          hourLabel: date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          dayLabel: date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
+          temp: tList[i],
+          humidity: hourly[humKey]?.[i] ?? null,
+          pressure: hourly[presKey]?.[i] ?? null,
+          cloudCover: hourly[cloudKey]?.[i] ?? null,
+          precipitation: hourly[precKey]?.[i] ?? null,
+          windSpeed: hourly[speedKey]?.[i] ?? null,
+          windGusts: hourly[gustKey]?.[i] ?? null,
+          windDirection: hourly[dirKey]?.[i] ?? null,
+          directRadiation: hourly[directKey]?.[i] ?? 0.0,
+          diffuseRadiation: hourly[diffuseKey]?.[i] ?? 0.0,
+          weatherCode: rawCode,
+          weatherLabel: wInfo.label,
+          weatherIcon: wInfo.icon
         });
       }
-    }
-
-    const currentIdx = dataset.length - 1;
-    const currentP = dataset[currentIdx].p;
-    const currentH = dataset[currentIdx].h;
-    const currentT = dataset[currentIdx].t;
-    const currentDP = dataset[currentIdx].dp || 0;
-    const currentDH = dataset[currentIdx].dh || 0;
-    
-    let m2Forecast = {
-      state: 'stable',
-      label: 'Stable',
-      description: 'Temps stationnaire et calme.',
-      icon: 'cloud-sun'
+      return result;
     };
 
-    if (currentP !== null) {
-      const scaleFactor = horizon / 3;
-      const pTrend = currentDP < (-1.0 * scaleFactor) ? 'falling' : (currentDP > (1.0 * scaleFactor) ? 'rising' : 'stable');
-      const hTrend = currentDH < (-3.0 * scaleFactor) ? 'falling' : (currentDH > (3.0 * scaleFactor) ? 'rising' : 'stable');
-
-      if (pTrend === 'falling' && hTrend === 'rising') {
-        m2Forecast = { state: 'rainy', label: 'Pluie / Orage', description: 'Chute de pression et hausse d’humidité. Risque fort de précipitations.', icon: 'cloud-lightning' };
-      } else if (pTrend === 'falling') {
-        m2Forecast = { state: 'cloudy', label: 'Averses / Perturbation', description: 'La pression baisse. Ciel couvert et risque d’averses.', icon: 'cloud-drizzle' };
-      } else if (pTrend === 'rising' && hTrend === 'falling') {
-        m2Forecast = { state: 'sunny', label: 'Amélioration / Beau temps', description: 'La pression remonte et l’air s’assèche. Retour du soleil.', icon: 'sun' };
-      } else if (pTrend === 'rising') {
-        m2Forecast = { state: 'cloudy', label: 'Éclaircies', description: 'L’anticyclone se renforce mais de l’humidité persiste. Beau ciel d’éclaircies.', icon: 'cloud-sun' };
-      } else {
-        if (hTrend === 'rising') {
-          m2Forecast = { state: 'cloudy', label: 'Ciel couvert', description: 'Le temps se couvre légèrement sans pluie immédiate.', icon: 'cloud' };
-        } else if (hTrend === 'falling') {
-          m2Forecast = { state: 'sunny', label: 'Temps Sec', description: 'Ciel dégagé et sec.', icon: 'sun' };
-        }
-      }
-    }
-
-    let m3Forecast = {
-      state: 'unknown',
-      label: 'Indéterminé',
-      confidence: 0,
-      trainingSize: trainingSamples.length,
-      icon: 'help-circle'
-    };
-
-    if (trainingSamples.length > 0 && currentP !== null) {
-      const scales = [15, 60, 25, 4, 20];
-
-      const nSamples = trainingSamples.length;
-      for (let j = 0; j < 5; j++) {
-        let sum = 0;
-        trainingSamples.forEach(sample => sum += sample.features[j]);
-        const mean = sum / nSamples;
-        let sumSq = 0;
-        trainingSamples.forEach(sample => sumSq += Math.pow(sample.features[j] - mean, 2));
-        const stdDev = Math.sqrt(sumSq / nSamples);
-        if (stdDev > 0.01) {
-          scales[j] = stdDev;
-        }
-      }
-
-      const distances = trainingSamples.map(sample => {
-        let sumSq = 0;
-        for (let j = 0; j < 5; j++) {
-          const diff = (sample.features[j] - [currentP, currentH, currentT, currentDP, currentDH][j]) / scales[j];
-          sumSq += diff * diff;
-        }
-        return {
-          distance: Math.sqrt(sumSq),
-          label: sample.label
-        };
-      });
-
-      distances.sort((a, b) => a.distance - b.distance);
-
-      const K = Math.min(5, distances.length);
-      const neighbors = distances.slice(0, K);
-
-      const votes = {};
-      neighbors.forEach(n => {
-        votes[n.label] = (votes[n.label] || 0) + 1;
-      });
-
-      let predictedLabel = 'unknown';
-      let maxVotes = 0;
-      for (const label in votes) {
-        if (votes[label] > maxVotes) {
-          maxVotes = votes[label];
-          predictedLabel = label;
-        }
-      }
-
-      const confidence = Math.round((maxVotes / K) * 100);
-
-      const translations = {
-        'sunny': { label: 'Ensoleillé', icon: 'sun' },
-        'partlycloudy': { label: 'Éclaircies', icon: 'cloud-sun' },
-        'cloudy': { label: 'Couvert', icon: 'cloud' },
-        'rainy': { label: 'Pluvieux', icon: 'cloud-rain' },
-        'snowy': { label: 'Neigeux', icon: 'snowflake' },
-        'clear-night': { label: 'Nuit claire', icon: 'moon' },
-        'hail': { label: 'Grêle', icon: 'cloud-hail' },
-        'lightning': { label: 'Orageux', icon: 'cloud-lightning' },
-        'fog': { label: 'Brumeux', icon: 'cloud-fog' },
-        'windy': { label: 'Venteux', icon: 'wind' }
-      };
-
-      const trans = translations[predictedLabel] || { label: predictedLabel, icon: 'cloud-sun' };
-
-      m3Forecast = {
-        state: predictedLabel,
-        label: trans.label,
-        confidence: confidence,
-        trainingSize: trainingSamples.length,
-        icon: trans.icon
-      };
-    }
-
-    const chartSeries = dataset.slice(-24).map(d => ({
-      time: d.time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-      p: d.p,
-      h: d.h
-    }));
+    const aromeForecasts = extractModelData('meteofrance_arome_france_hd');
+    const arpegeForecasts = extractModelData('meteofrance_arpege_europe');
 
     const responseData = {
       timestamp: new Date().toISOString(),
-      horizon: horizon,
-      current: {
-        pressure: currentP,
-        humidity: currentH,
-        temp: currentT,
-        dp: currentDP,
-        dh: currentDH
+      location: {
+        latitude: lat,
+        longitude: lon,
+        timezone: timezone
       },
-      m2: m2Forecast,
-      m3: m3Forecast,
-      chart: chartSeries
+      arome: aromeForecasts,
+      arpege: arpegeForecasts
     };
 
-    memoryCache.forecasts[cacheKey] = {
+    memoryCache.forecasts = {
       time: nowTime,
       data: responseData
     };
 
     res.json(responseData);
   } catch (error) {
-    console.error('Error computing weather forecasts:', error);
-    if (memoryCache.forecasts[cacheKey]) {
-      console.warn('Returning stale cached forecasts data due to HA connection error');
-      return res.json({ ...memoryCache.forecasts[cacheKey].data, stale: true });
+    console.error('Error fetching/computing weather forecasts:', error);
+    if (memoryCache.forecasts.data) {
+      console.warn('Returning stale cached forecasts data due to Open-Meteo connection error');
+      return res.json({ ...memoryCache.forecasts.data, stale: true });
     }
-    res.status(500).json({ error: error.message || 'Failed to compute forecasts' });
+    res.status(500).json({ error: error.message || 'Failed to fetch forecasts' });
   }
 });
 
@@ -593,6 +526,67 @@ app.get('/api/presence-prediction', async (req, res) => {
   }
 });
 
+// Ridge Regression solver for Y = beta0 + beta1 * X1 + beta2 * X2
+function solveRidgeRegression(samples, lambda = 0.5) {
+  let xtx = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0]
+  ];
+  let xty = [0, 0, 0];
+
+  for (const s of samples) {
+    const r = [1, s.x1, s.x2];
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        xtx[i][j] += r[i] * r[j];
+      }
+      xty[i] += r[i] * s.y;
+    }
+  }
+
+  // Add Ridge regularization parameter (lambda) on diagonal for stability (except intercept)
+  xtx[0][0] += lambda * 0.01;
+  xtx[1][1] += lambda;
+  xtx[2][2] += lambda;
+
+  const a00 = xtx[0][0], a01 = xtx[0][1], a02 = xtx[0][2];
+  const a10 = xtx[1][0], a11 = xtx[1][1], a12 = xtx[1][2];
+  const a20 = xtx[2][0], a21 = xtx[2][1], a22 = xtx[2][2];
+
+  const det = a00 * (a11 * a22 - a12 * a21) -
+              a01 * (a10 * a22 - a12 * a20) +
+              a02 * (a10 * a21 - a11 * a20);
+
+  if (Math.abs(det) < 1e-6) {
+    return { beta0: 0.007, beta1: -0.005, beta2: 0.02 };
+  }
+
+  const inv = [
+    [
+      (a11 * a22 - a12 * a21) / det,
+      -(a01 * a22 - a02 * a21) / det,
+      (a01 * a12 - a02 * a11) / det
+    ],
+    [
+      -(a10 * a22 - a12 * a20) / det,
+      (a00 * a22 - a02 * a20) / det,
+      -(a00 * a12 - a02 * a10) / det
+    ],
+    [
+      (a10 * a21 - a11 * a20) / det,
+      -(a00 * a21 - a01 * a20) / det,
+      (a00 * a11 - a01 * a10) / det
+    ]
+  ];
+
+  const beta0 = inv[0][0] * xty[0] + inv[0][1] * xty[1] + inv[0][2] * xty[2];
+  const beta1 = inv[1][0] * xty[0] + inv[1][1] * xty[1] + inv[1][2] * xty[2];
+  const beta2 = inv[2][0] * xty[0] + inv[2][1] * xty[1] + inv[2][2] * xty[2];
+
+  return { beta0, beta1, beta2 };
+}
+
 // Endpoint for heat management advice and ML projection
 app.get('/api/heat-management', async (req, res) => {
   const nowTime = Date.now();
@@ -602,7 +596,7 @@ app.get('/api/heat-management', async (req, res) => {
 
   try {
     const now = new Date();
-    const startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+    const startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
     
     const startStr = startTime.toISOString();
     const endStr = now.toISOString();
@@ -614,7 +608,8 @@ app.get('/api/heat-management', async (req, res) => {
         roomsConf[r.id] = {
           label: r.label,
           tempEntity: r.tempEntity,
-          humEntity: r.humEntity || config.entities.netatmo_humidity
+          humEntity: r.humEntity || config.entities.netatmo_humidity,
+          windowOrientation: r.windowOrientation !== undefined ? r.windowOrientation : null
         };
       }
     });
@@ -677,6 +672,9 @@ app.get('/api/heat-management', async (req, res) => {
     const curTout = getVal(config.entities.outdoor_temp) || 20.0;
     const curHout = getVal(config.entities.outdoor_humidity) || 60.0;
     const curWeather = stateMap[config.entities.weather_forecast]?.state || 'unknown';
+    const weatherState = stateMap[config.entities.weather_forecast];
+    const curWindSpeed = (weatherState && weatherState.attributes) ? (weatherState.attributes.wind_speed || 0.0) : 0.0;
+    const curWindBearing = (weatherState && weatherState.attributes) ? (weatherState.attributes.wind_bearing || 0.0) : 0.0;
 
     const getStateAt = (history, targetTime) => {
       let activeState = null;
@@ -695,21 +693,116 @@ app.get('/api/heat-management', async (req, res) => {
     };
 
     // Fetch forecasts
-    const forecastResponse = await fetch(`${config.HA_URL}/api/services/weather/get_forecasts?return_response=true`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.HA_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        entity_id: config.entities.weather_forecast,
-        type: 'hourly'
-      })
-    });
+    let lat = 48.8540661;
+    let lon = 2.7863045;
+    let timezone = 'Europe/Paris';
 
-    if (!forecastResponse.ok) throw new Error(`HA API returned ${forecastResponse.status} for weather forecasts`);
-    const forecastData = await forecastResponse.json();
-    const forecastList = forecastData.service_response?.[config.entities.weather_forecast]?.forecast || [];
+    try {
+      const haConfig = await fetchHAConfig();
+      if (haConfig.latitude && haConfig.longitude) {
+        lat = haConfig.latitude;
+        lon = haConfig.longitude;
+      }
+      if (haConfig.time_zone) {
+        timezone = haConfig.time_zone;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch config from Home Assistant, using defaults:', e.message);
+    }
+
+    const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,direct_radiation,diffuse_radiation&models=meteofrance_arome_france_hd,meteofrance_arpege_europe&timezone=${encodeURIComponent(timezone)}`;
+    
+    let forecastList = [];
+    try {
+      const omResponse = await fetch(openMeteoUrl);
+      if (!omResponse.ok) throw new Error(`Open-Meteo returned status ${omResponse.status}`);
+      const omData = await omResponse.json();
+      const omHourly = omData.hourly;
+
+      if (omHourly && omHourly.time) {
+        const mapWeatherCodeToHACondition = (code) => {
+          if (code === 0) return 'sunny';
+          if (code === 1 || code === 2) return 'partlycloudy';
+          if (code === 3) return 'cloudy';
+          if ([45, 48].includes(code)) return 'fog';
+          if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return 'rainy';
+          if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snowy';
+          if ([95, 96, 99].includes(code)) return 'lightning';
+          return 'unknown';
+        };
+
+        const extractOMModelData = (suffix) => {
+          const tempKey = `temperature_2m_${suffix}`;
+          const humKey = `relative_humidity_2m_${suffix}`;
+          const speedKey = `wind_speed_10m_${suffix}`;
+          const dirKey = `wind_direction_10m_${suffix}`;
+          const cloudKey = `cloud_cover_${suffix}`;
+          const codeKey = `weather_code_${suffix}`;
+          const directKey = `direct_radiation_${suffix}`;
+          const diffuseKey = `diffuse_radiation_${suffix}`;
+
+          const tList = omHourly[tempKey] || [];
+          const result = [];
+          for (let i = 0; i < tList.length; i++) {
+            if (omHourly.time[i] === null || omHourly.time[i] === undefined) continue;
+            if (tList[i] === null || tList[i] === undefined) continue;
+            const timeStr = omHourly.time[i];
+            
+            let rawCode = omHourly[codeKey]?.[i];
+            if (rawCode === null || rawCode === undefined) {
+              const fallbackSuffix = suffix.includes('arome') ? 'meteofrance_arpege_europe' : 'meteofrance_arome_france_hd';
+              rawCode = omHourly[`weather_code_${fallbackSuffix}`]?.[i];
+            }
+
+            result.push({
+              datetime: timeStr,
+              temperature: tList[i],
+              humidity: omHourly[humKey]?.[i] ?? 50.0,
+              condition: mapWeatherCodeToHACondition(rawCode),
+              wind_speed: omHourly[speedKey]?.[i] ?? 0.0,
+              wind_bearing: omHourly[dirKey]?.[i] ?? 0.0,
+              cloud_coverage: omHourly[cloudKey]?.[i] ?? 50.0,
+              directRadiation: omHourly[directKey]?.[i] ?? 0.0,
+              diffuseRadiation: omHourly[diffuseKey]?.[i] ?? 0.0
+            });
+          }
+          return result;
+        };
+
+        const aromeForecasts = extractOMModelData('meteofrance_arome_france_hd');
+        const arpegeForecasts = extractOMModelData('meteofrance_arpege_europe');
+        forecastList = aromeForecasts.length > 0 ? aromeForecasts : arpegeForecasts;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch forecasts from Open-Meteo, falling back to Home Assistant forecasts:', err.message);
+      // Fallback to Home Assistant weather entity forecast
+      const forecastResponse = await fetch(`${config.HA_URL}/api/services/weather/get_forecasts?return_response=true`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.HA_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          entity_id: config.entities.weather_forecast,
+          type: 'hourly'
+        })
+      });
+      if (forecastResponse.ok) {
+        const forecastData = await forecastResponse.json();
+        const rawForecastList = forecastData.service_response?.[config.entities.weather_forecast]?.forecast || [];
+        forecastList = rawForecastList.map(f => ({
+          datetime: f.datetime,
+          temperature: f.temperature,
+          humidity: f.humidity,
+          condition: f.condition,
+          wind_speed: f.wind_speed,
+          wind_bearing: f.wind_bearing,
+          cloud_coverage: f.cloud_coverage,
+          directRadiation: 0.0,
+          diffuseRadiation: 0.0
+        }));
+      }
+    }
 
     const calculateAH = (temp, rh) => {
       if (temp === null || rh === null) return null;
@@ -736,7 +829,7 @@ app.get('/api/heat-management', async (req, res) => {
       const outHHist = historyMap[config.entities.outdoor_humidity] || [];
 
       const dataset = [];
-      const hourlyPoints = 168;
+      const hourlyPoints = 30 * 24; // 30 days of history
       for (let i = 0; i <= hourlyPoints; i++) {
         const targetTime = new Date(startTime.getTime() + i * 60 * 60 * 1000);
         const tin = parseFloat(getStateAt(tHist, targetTime));
@@ -745,6 +838,7 @@ app.get('/api/heat-management', async (req, res) => {
         const hout = parseFloat(getStateAt(outHHist, targetTime));
 
         dataset.push({
+          time: targetTime,
           tin: isNaN(tin) ? null : tin,
           tout: isNaN(tout) ? null : tout,
           hin: isNaN(hin) ? null : hin,
@@ -757,34 +851,40 @@ app.get('/api/heat-management', async (req, res) => {
         const curr = dataset[i];
         const next = dataset[i + 1];
         if (curr.tin !== null && curr.tout !== null && next.tin !== null) {
+          const h = curr.time.getHours();
+          const solarProxy = Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
           samples.push({
-            x: curr.tin - curr.tout,
+            x1: curr.tin - curr.tout,
+            x2: solarProxy,
             y: next.tin - curr.tin
           });
         }
       }
 
       let slope = -0.005;
+      let solarCoeff = 0.02;
       let intercept = 0.007;
-      if (samples.length > 10) {
-        let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-        const n = samples.length;
-        for (const s of samples) {
-          sumX += s.x;
-          sumY += s.y;
-          sumXY += s.x * s.y;
-          sumXX += s.x * s.x;
-        }
 
-        const denom = n * sumXX - sumX * sumX;
-        if (denom !== 0) {
-          slope = (n * sumXY - sumX * sumY) / denom;
-          intercept = (sumY - slope * sumX) / n;
-        }
+      if (samples.length > 10) {
+        const fit = solveRidgeRegression(samples, 0.5);
+        slope = fit.beta1;
+        solarCoeff = fit.beta2;
+        intercept = fit.beta0;
       }
 
+      // Clamp coefficients to physical bounds
       if (slope >= 0) {
         slope = -0.005;
+      }
+      if (solarCoeff < 0) {
+        solarCoeff = 0.0;
+      } else if (solarCoeff > 0.1) {
+        solarCoeff = 0.1;
+      }
+      if (intercept < 0) {
+        intercept = 0.005;
+      } else if (intercept > 0.05) {
+        intercept = 0.05;
       }
 
       let curRoomTin = getVal(roomConf.tempEntity);
@@ -799,6 +899,28 @@ app.get('/api/heat-management', async (req, res) => {
 
       const curTinAH = calculateAH(curRoomTin, curRoomHin);
 
+      // Check if there is an opposite room in the config for cross ventilation
+      const oppositeOrientation = (roomConf.windowOrientation !== null) ? (roomConf.windowOrientation + 180) % 360 : null;
+      const hasOppositeRoom = config.rooms.some(r => r.id !== roomId && r.tempEntity && r.windowOrientation !== null && Math.abs((r.windowOrientation - oppositeOrientation + 360) % 360) === 0);
+
+      let curWindAlignment = 1.0;
+      let curCrossVentilationActive = false;
+      if (roomConf.windowOrientation !== null) {
+        const diffAngle = Math.abs(curWindBearing - roomConf.windowOrientation) % 360;
+        const absDiff = diffAngle > 180 ? 360 - diffAngle : diffAngle;
+        curWindAlignment = Math.max(0, Math.cos(absDiff * Math.PI / 180));
+
+        if (hasOppositeRoom) {
+          const axisAlignment = Math.abs(Math.cos(absDiff * Math.PI / 180));
+          if (axisAlignment > 0.707) { // within 45 degrees of the window axis
+            curCrossVentilationActive = true;
+          }
+        }
+      }
+
+      const curIsHumidityFavorable = curRoomHin > 60 ? (curToutAH < curTinAH) : (curToutAH < 13.0);
+      const curIsFavorable = curTout < curRoomTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather) && curHout < 85 && curIsHumidityFavorable;
+
       const timeline = [];
       timeline.push({
         time: now.toISOString(),
@@ -810,7 +932,7 @@ app.get('/api/heat-management', async (req, res) => {
         toutAH: curToutAH,
         tinAH: curTinAH,
         condition: curWeather,
-        isFavorable: curTout < curRoomTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather) && curHout < 85
+        isFavorable: curIsFavorable
       });
 
       let runningTin = curRoomTin;
@@ -827,16 +949,51 @@ app.get('/api/heat-management', async (req, res) => {
         const fHout = f.humidity || 50.0;
         const fCondition = f.condition || 'unknown';
         const fWind = f.wind_speed || 0.0;
+        const fWindBearing = f.wind_bearing || 0.0;
         const fCloud = f.cloud_coverage !== undefined ? f.cloud_coverage : 50.0;
 
         const dt = (fTime - lastTime) / (1000 * 60 * 60);
         lastTime = fTime;
 
-        const effectiveSlope = slope * (1 + 0.01 * fWind);
+        // Calculate wind-alignment factor
+        let windAlignment = 1.0;
+        let crossVentilationActive = false;
+        if (roomConf.windowOrientation !== null) {
+          const diffAngle = Math.abs(fWindBearing - roomConf.windowOrientation) % 360;
+          const absDiff = diffAngle > 180 ? 360 - diffAngle : diffAngle;
+          windAlignment = Math.max(0, Math.cos(absDiff * Math.PI / 180));
+
+          if (hasOppositeRoom) {
+            const axisAlignment = Math.abs(Math.cos(absDiff * Math.PI / 180));
+            if (axisAlignment > 0.707) { // within 45 degrees of the window axis
+              crossVentilationActive = true;
+            }
+          }
+        }
+
+        // Slope acceleration based on speed, orientation, and cross-ventilation multiplier (1.5x)
+        const crossMultiplier = crossVentilationActive ? 1.5 : 1.0;
+        const effectiveSlope = slope * (1 + 0.01 * fWind * (0.4 + 0.6 * windAlignment) * crossMultiplier);
 
         const fHour = fTime.getHours();
-        const solarIntensity = Math.max(0, Math.cos(((fHour - 13) / 12) * Math.PI));
-        const solarGain = 0.04 * (1 - fCloud / 100) * solarIntensity;
+        const fDirectRadiation = f.directRadiation || 0.0;
+        const fDiffuseRadiation = f.diffuseRadiation || 0.0;
+
+        // Simple sun azimuth estimation (6h = 90deg, 12h = 180deg, 18h = 270deg)
+        const sunAzimuth = 90 + (fHour - 6) * 15;
+        let cosIncidence = 0.0;
+        if (roomConf.windowOrientation !== null) {
+          const diffAngle = Math.abs(sunAzimuth - roomConf.windowOrientation) % 360;
+          const absDiff = diffAngle > 180 ? 360 - diffAngle : diffAngle;
+          // Direct light only hits if sun is in front of window (within 90 degrees)
+          cosIncidence = Math.max(0, Math.cos(absDiff * Math.PI / 180));
+        }
+
+        // Calculate solar irradiance on window in W/m² (direct + diffuse sky visibility)
+        const solarIrradiance = fDirectRadiation * cosIncidence + fDiffuseRadiation * 0.5;
+        
+        // Solar gain is actual irradiance normalized (divided by 1000 W/m²) and scaled by the fitted solarCoeff
+        const solarGain = solarCoeff * (solarIrradiance / 1000.0);
         const effectiveIntercept = intercept + solarGain;
 
         const nextTin = runningTin + dt * (effectiveSlope * (runningTin - fTout) + effectiveIntercept);
@@ -846,7 +1003,9 @@ app.get('/api/heat-management', async (req, res) => {
         const nextHin = calculateRHFromAH(nextTinAH, nextTin);
 
         const hourLabel = fTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-        const isFavorable = fTout < nextTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(fCondition) && fHout < 85;
+        
+        const isHumidityFavorable = nextHin > 60 ? (fToutAH < nextTinAH) : (fToutAH < 13.0);
+        const isFavorable = fTout < nextTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(fCondition) && fHout < 85 && isHumidityFavorable;
 
         timeline.push({
           time: f.datetime,
@@ -923,23 +1082,30 @@ app.get('/api/heat-management', async (req, res) => {
       }
 
       const isWet = ['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather);
-      const isFavorableNow = curTout < curRoomTin && !isWet && curHout < 85;
-
-      let shouldOpen = isFavorableNow;
-      let shouldClose = !isFavorableNow && curTout > curRoomTin;
-
+      
+      let shouldOpen = false;
+      let shouldClose = false;
       let advice = "";
+
       if (isWet) {
         advice = `Gardez les fenêtres fermées dans le ${roomConf.label} car il pleut actuellement dehors.`;
         shouldOpen = false;
+        shouldClose = true;
       } else if (curTout >= curRoomTin) {
         advice = `Gardez les fenêtres fermées. Il fait plus chaud dehors (${curTout.toFixed(1)}°C) qu'à l'intérieur du ${roomConf.label} (${curRoomTin.toFixed(1)}°C).`;
+        shouldOpen = false;
+        shouldClose = true;
+      } else if (!curIsHumidityFavorable) {
+        advice = `Gardez les fenêtres fermées dans le ${roomConf.label}. Bien qu'il fasse plus frais dehors (${curTout.toFixed(1)}°C vs ${curRoomTin.toFixed(1)}°C), l'air extérieur est trop humide (Humidité absolue : ${curToutAH.toFixed(1)} g/m³ vs ${curTinAH.toFixed(1)} g/m³).`;
+        shouldOpen = false;
+        shouldClose = true;
       } else {
-        advice = `C'est le moment idéal d'ouvrir la fenêtre du ${roomConf.label} ! Température extérieure : ${curTout.toFixed(1)}°C, ${roomConf.label} : ${curRoomTin.toFixed(1)}°C.`;
-        if (curToutAH < curTinAH) {
-          advice += ` L'aération permettra d'assécher l'air intérieur (${curHout}% d'humidité dehors).`;
-        } else {
-          advice += ` Note : l'air extérieur est humide (${curHout}%), cela augmentera légèrement l'humidité.`;
+        advice = `C'est le moment idéal d'ouvrir la fenêtre du ${roomConf.label} ! Il fait plus frais dehors (${curTout.toFixed(1)}°C vs ${curRoomTin.toFixed(1)}°C) et l'air est sain et sec (${curToutAH.toFixed(1)} g/m³ d'humidité absolue).`;
+        shouldOpen = true;
+        shouldClose = false;
+
+        if (curCrossVentilationActive) {
+          advice += ` Le vent de direction ${curWindBearing}° est aligné, favorisant une ventilation croisée efficace !`;
         }
       }
 
@@ -955,10 +1121,12 @@ app.get('/api/heat-management', async (req, res) => {
           weatherCondition: curWeather,
           shouldOpen: shouldOpen,
           shouldClose: shouldClose,
+          isHumidityFavorable: curIsHumidityFavorable,
           advice: advice
         },
         regression: {
           slope: Math.round(slope * 10000) / 10000,
+          solarCoeff: Math.round(solarCoeff * 10000) / 10000,
           intercept: Math.round(intercept * 10000) / 10000
         },
         projection: timeline,

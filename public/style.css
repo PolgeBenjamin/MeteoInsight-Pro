@@ -234,11 +234,6 @@ h1, h2, h3, .temp-value {
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.icon-btn:active {
-  transform: translateY(0);
 }
 
 /* Main Dashboard Layout */
@@ -287,8 +282,7 @@ h1, h2, h3, .temp-value {
 
 .card:hover {
   border-color: var(--card-border-hover);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.1);
 }
 
 .card-bg-gradient {
@@ -708,7 +702,6 @@ h1, h2, h3, .temp-value {
 }
 
 .room-tile:hover {
-  transform: translateY(-3px);
   border-color: var(--card-border-hover);
   box-shadow: var(--card-shadow);
 }
@@ -1255,7 +1248,6 @@ h1, h2, h3, .temp-value {
 .status-widget:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
 }
 
 .status-widget i {
@@ -1323,7 +1315,6 @@ h1, h2, h3, .temp-value {
 }
 
 .forecast-card:hover {
-  transform: translateY(-4px);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: var(--card-shadow);
 }
@@ -1946,6 +1937,622 @@ h1, h2, h3, .temp-value {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   MOBILE FIRST RESPONSIVE REFAC (SCREENS <= 768PX)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Fix layout padding */
+  .app-container {
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+
+  /* Redesign header layout */
+  .dashboard-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .header-main {
+    align-items: center;
+  }
+
+  .logo-area {
+    justify-content: center;
+  }
+
+  .clock-area {
+    align-items: center;
+    margin-top: 0.25rem;
+  }
+
+  /* Bottom Navigation Bar for Mobile */
+  .header-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(8, 11, 22, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    margin: 0;
+    padding: 0.65rem 0.5rem;
+    z-index: 9999;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+  }
+
+  .nav-link {
+    flex-direction: column;
+    gap: 0.25rem;
+    background: transparent !important;
+    border: none !important;
+    padding: 0.2rem !important;
+    font-size: 0.72rem !important;
+    color: var(--text-dim) !important;
+    flex: 1;
+    text-align: center;
+    align-items: center;
+    box-shadow: none !important;
+  }
+
+  .nav-link i, .nav-link svg {
+    width: 22px !important;
+    height: 22px !important;
+    color: inherit;
+  }
+
+  .nav-link.active {
+    color: var(--color-primary) !important;
+  }
+  
+  .nav-link:hover {
+    color: var(--text-primary) !important;
+  }
+
+  /* Hide GitHub link on bottom nav to save space */
+  .github-link {
+    display: none !important;
+  }
+
+  /* Avoid content being hidden behind bottom navigation */
+  body {
+    padding-bottom: 75px !important;
+  }
+
+  /* Adjust grids for mobile */
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  /* Quick status bar styling on mobile */
+  .quick-status-bar {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+
+  .status-widget {
+    padding: 0.6rem 1rem !important;
+    border-radius: 12px !important;
+  }
+
+  /* Temperature displays */
+  .temp-display .temp-value {
+    font-size: 4rem !important;
+  }
+
+  /* Chart containers */
+  .chart-card {
+    padding: 1rem !important;
+  }
+
+  .chart-container {
+    height: 260px !important;
+  }
+
+  /* Table responsiveness */
+  .table-scroll {
+    overflow-x: auto !important;
+    max-height: 400px !important;
+  }
+  
+  .forecast-table th, .forecast-table td {
+    padding: 0.65rem 0.85rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  /* Settings page adjustments */
+  .settings-card {
+    padding: 1.5rem 1.25rem !important;
+  }
+
+  /* Controls layout */
+  .header-controls {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Horizon and model selectors on mobile */
+  .horizon-selector, .model-selector, .mode-selector {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .model-btn, .mode-btn {
+    flex: 1;
+    text-align: center;
+    padding: 0.4rem 0.6rem !important;
+    font-size: 0.75rem !important;
+  }
+  
+  /* Banner info */
+  .model-info-banner {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+    padding: 1rem !important;
+  }
+  
+  .info-stat .stat-value {
+    font-size: 0.95rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Quick status bar for very small screens */
+  .quick-status-bar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .model-info-banner {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ==========================================================================
+   LIGHT THEME STYLING OVERRIDES (APPLE STYLE DESIGN SYSTEM)
+   ========================================================================== */
+
+body.light-theme {
+  /* Apple Light Palette */
+  --bg-app: #f5f5f7;
+  --bg-gradient-1: #fbfbfd;
+  --bg-gradient-2: #f5f5f7;
+  --bg-gradient-3: #e8e8ed;
+  
+  --card-bg: rgba(255, 255, 255, 0.78);
+  --card-border: rgba(0, 0, 0, 0.06);
+  --card-border-hover: rgba(0, 113, 227, 0.35); /* Apple Blue subtle hover border */
+  --card-shadow: 0 8px 30px rgba(0, 0, 0, 0.035);
+  
+  --text-primary: #1d1d1f; /* Apple primary text */
+  --text-muted: #424245;   /* Apple secondary text */
+  --text-dim: #6e6e73;     /* Apple tertiary/muted text */
+  
+  /* Primary brand colors in light theme - Apple Developer Human Interface Guidelines */
+  --color-primary: #0071e3;   /* Apple Blue */
+  --color-secondary: #5856d6; /* Apple Indigo */
+  --color-success: #34c759;   /* Apple Green */
+  --color-warning: #ff9500;   /* Apple Orange */
+  --color-danger: #ff3b30;    /* Apple Red */
+  --color-info: #55befa;      /* Apple Light Blue */
+  --color-accent: #af52de;    /* Apple Purple */
+}
+
+body.light-theme {
+  background-color: #f5f5f7;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(0, 113, 227, 0.04) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(175, 82, 222, 0.03) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(52, 199, 89, 0.02) 0px, transparent 50%) !important;
+}
+
+/* Card overrides in light theme */
+body.light-theme .card-bg-gradient {
+  opacity: 0.02 !important; /* Extremely clean and neutral, no heavy neon mesh inside cards */
+}
+
+body.light-theme .card {
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+}
+
+body.light-theme .outdoor-hero-card,
+body.light-theme .highlight-card {
+  background: var(--card-bg) !important;
+}
+
+body.light-theme .card:hover {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: var(--card-border-hover) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06) !important;
+  transform: none !important; /* Stable card on hover */
+}
+
+/* SVG blueprint overrides - Apple blueprint styling */
+body.light-theme .room-rect {
+  fill: rgba(255, 255, 255, 0.9) !important;
+  stroke: rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-theme .clickable-room:hover .room-rect {
+  fill: rgba(255, 255, 255, 0.98) !important;
+  stroke: var(--color-primary) !important;
+}
+
+body.light-theme .active-room .room-rect {
+  fill: rgba(255, 255, 255, 0.98) !important;
+  stroke: var(--color-primary) !important;
+}
+
+body.light-theme .thermal-overlay { opacity: 0.22 !important; }
+body.light-theme .light-overlay { opacity: 0.12 !important; }
+body.light-theme .humidity-overlay { opacity: 0.16 !important; }
+body.light-theme .co2-overlay { opacity: 0.16 !important; }
+
+/* Header and Logo */
+body.light-theme .logo-area h1 {
+  background: linear-gradient(to right, #1d1d1f, #86868b) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+body.light-theme .dashboard-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+body.light-theme .progress-bar-bg {
+  background: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Header nav link overrides - Apple Pill Navigation */
+body.light-theme .nav-link {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--text-dim) !important;
+  box-shadow: none !important;
+}
+
+body.light-theme .nav-link:hover {
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: var(--text-primary) !important;
+}
+
+body.light-theme .nav-link.active {
+  background: rgba(0, 113, 227, 0.08) !important;
+  color: var(--color-primary) !important;
+  border-color: rgba(0, 113, 227, 0.15) !important;
+}
+
+/* Bottom Nav bar overrides on mobile */
+@media (max-width: 768px) {
+  body.light-theme .header-nav {
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.06) !important;
+    box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.03) !important;
+  }
+  
+  body.light-theme .nav-link {
+    background: transparent !important;
+    border: none !important;
+  }
+  
+  body.light-theme .nav-link.active {
+    color: var(--color-primary) !important;
+    background: transparent !important;
+  }
+}
+
+/* Settings Form Control overrides - Apple style Text Inputs */
+body.light-theme .form-control {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  color: var(--text-primary) !important;
+  padding: 0.75rem 1rem !important;
+  font-family: inherit !important;
+  transition: all 0.2s ease !important;
+}
+
+body.light-theme .form-control:focus {
+  background: #ffffff !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15) !important;
+}
+
+body.light-theme .settings-section-title {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  color: var(--text-primary) !important;
+}
+
+body.light-theme #submit-btn {
+  background: var(--color-primary) !important;
+  border-color: rgba(0, 113, 227, 0.2) !important;
+  color: #ffffff !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.2) !important;
+  transition: all 0.25s ease !important;
+}
+
+body.light-theme #submit-btn:hover {
+  background: #0077ed !important;
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3) !important;
+}
+
+/* Forecasts page overrides - Apple clean table & containers */
+body.light-theme .forecast-table-container {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: var(--card-shadow) !important;
+  backdrop-filter: blur(25px) !important;
+  -webkit-backdrop-filter: blur(25px) !important;
+}
+
+body.light-theme .forecast-table th {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: var(--text-dim) !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.05em !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  padding: 1rem 1.25rem !important;
+}
+
+body.light-theme .forecast-table td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+  color: var(--text-primary) !important;
+  padding: 0.9rem 1.25rem !important;
+}
+
+body.light-theme .forecast-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.012) !important;
+}
+
+/* Day cell highlight in light theme */
+body.light-theme .day-cell {
+  color: var(--color-secondary) !important;
+}
+
+/* Scrollbars in light theme */
+body.light-theme .table-scroll {
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent !important;
+}
+
+body.light-theme .table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Model information banner */
+body.light-theme .model-info-banner {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.01) !important;
+}
+
+/* Selectors and Pills (Apple segmented control style) */
+body.light-theme .model-selector,
+body.light-theme .mode-selector,
+body.light-theme .horizon-selector {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.03) !important;
+  padding: 0.2rem !important;
+}
+
+body.light-theme .model-btn,
+body.light-theme .mode-btn,
+body.light-theme .horizon-btn,
+body.light-theme .switcher-btn {
+  color: var(--text-muted) !important;
+  font-weight: 500 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+body.light-theme .model-btn:hover:not(.active),
+body.light-theme .mode-btn:hover:not(.active),
+body.light-theme .horizon-btn:hover:not(.active),
+body.light-theme .switcher-btn:hover:not(.active) {
+  color: var(--text-primary) !important;
+  background: rgba(0, 0, 0, 0.02) !important;
+}
+
+body.light-theme .model-btn.active {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-theme .mode-btn.active {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-theme .horizon-btn.active,
+body.light-theme .switcher-btn.active {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Status summary widgets (Quick Status Bar) */
+body.light-theme .status-widget {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+body.light-theme .status-widget:hover {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  transform: none !important;
+}
+
+body.light-theme .status-widget i,
+body.light-theme .status-widget svg {
+  color: var(--color-primary) !important;
+}
+
+/* Info advice widget (Ressenti) */
+body.light-theme .info-widget {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(0, 0, 0, 0.04) !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+body.light-theme .info-widget .widget-icon i,
+body.light-theme .info-widget .widget-icon svg {
+  color: var(--color-primary) !important;
+}
+
+/* Badges overrides */
+body.light-theme .badge {
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: var(--text-muted) !important;
+}
+
+body.light-theme .badge-accent {
+  background: rgba(217, 70, 239, 0.1) !important;
+  color: var(--color-accent) !important;
+}
+
+/* Buttons icon */
+body.light-theme .icon-btn {
+  background: rgba(0, 0, 0, 0.02) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  color: var(--text-muted) !important;
+}
+
+body.light-theme .icon-btn:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Large temperature text overrides for Light Theme */
+body.light-theme .temp-display .temp-value,
+body.light-theme .temp-display-large .temp-value {
+  background: linear-gradient(to bottom, #1d1d1f, #515154) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Floor Plan overrides in Light Theme */
+body.light-theme .floor-plan-card {
+  background: var(--card-bg) !important;
+}
+
+body.light-theme .layer-switcher {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.03) !important;
+  padding: 0.2rem !important;
+}
+
+body.light-theme #house-svg {
+  background: #ffffff !important; /* Pure white blueprint canvas inside card */
+  border-radius: 20px !important;
+  border: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light-theme #grid path {
+  stroke: rgba(0, 0, 0, 0.03) !important; /* Clean light gray grid pattern */
+}
+
+body.light-theme .room-rect {
+  fill: #f5f5f7 !important; /* Clean Apple light gray room backgrounds */
+  stroke: rgba(0, 0, 0, 0.08) !important; /* Crisp room divider lines */
+}
+
+body.light-theme .clickable-room:hover .room-rect {
+  fill: rgba(0, 113, 227, 0.04) !important; /* Apple Blue highlight on hover */
+  stroke: var(--color-primary) !important;
+  filter: none !important; /* Disable glowing drop-shadows on hover */
+}
+
+body.light-theme .active-room .room-rect {
+  fill: rgba(0, 113, 227, 0.04) !important;
+  stroke: var(--color-primary) !important;
+}
+
+body.light-theme .svg-room:hover .room-rect {
+  fill: rgba(0, 113, 227, 0.04) !important;
+  stroke: var(--color-primary) !important;
+  filter: none !important; /* Disable glowing drop-shadows on hover */
+}
+
+body.light-theme .room-label {
+  fill: var(--text-dim) !important;
+}
+
+body.light-theme .room-temp-val {
+  fill: var(--text-primary) !important;
+}
+
+body.light-theme .room-sub-val {
+  fill: var(--text-muted) !important;
+}
+
+body.light-theme #robovac-dock {
+  fill: #e8e8ed !important;
+  stroke: rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Range Slider input overrides in Light Theme */
+body.light-theme .time-range-slider {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+body.light-theme .time-range-slider::-webkit-slider-thumb {
+  border-color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+body.light-theme .time-range-slider::-moz-range-thumb {
+  border-color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Light overlay color legend bar in Light Theme */
+body.light-theme .light-bar {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.95) 100%) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Badges overrides in Light Theme */
+body.light-theme .badge {
+  background: rgba(0, 113, 227, 0.08) !important;
+  border-color: rgba(0, 113, 227, 0.15) !important;
+  color: var(--color-primary) !important;
+}
+
+body.light-theme .badge-accent {
+  background: rgba(175, 82, 222, 0.08) !important;
+  border-color: rgba(175, 82, 222, 0.15) !important;
+  color: var(--color-accent) !important;
+}
+
+body.light-theme .badge-netatmo {
+  background: rgba(0, 113, 227, 0.08) !important;
+  border-color: rgba(0, 113, 227, 0.15) !important;
+  color: var(--color-primary) !important;
+}
+
+
 
 
 
