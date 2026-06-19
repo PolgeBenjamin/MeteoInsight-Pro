@@ -649,18 +649,17 @@ async function getBiasModelCoefficients(lat, lon, timezone) {
 
     const getStateAt = (history, targetTime) => {
       let activeState = null;
+      let found = false;
       for (const item of history) {
         const itemTime = new Date(item.last_changed || item.last_updated);
         if (itemTime <= targetTime) {
           activeState = item.state;
+          found = true;
         } else {
           break;
         }
       }
-      if (activeState === null && history.length > 0) {
-        activeState = history[0].state;
-      }
-      return activeState;
+      return found ? activeState : null;
     };
 
     const archiveHourly = omArchive.hourly;
@@ -798,18 +797,17 @@ app.get('/api/heat-management', async (req, res) => {
 
     const getStateAt = (history, targetTime) => {
       let activeState = null;
+      let found = false;
       for (const item of history) {
         const itemTime = new Date(item.last_changed || item.last_updated);
         if (itemTime <= targetTime) {
           activeState = item.state;
+          found = true;
         } else {
           break;
         }
       }
-      if (activeState === null && history.length > 0) {
-        activeState = history[0].state;
-      }
-      return activeState;
+      return found ? activeState : null;
     };
 
     // Fetch forecasts
