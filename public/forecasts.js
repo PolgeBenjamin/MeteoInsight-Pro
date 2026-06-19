@@ -199,7 +199,8 @@ function renderTable(modelData) {
       <th>Jour</th>
       <th>Heure</th>
       <th>Temps</th>
-      <th>Temp.</th>
+      <th>Temp. brute</th>
+      <th>Temp. Ajustée (ML)</th>
       <th>Pluie (mm)</th>
       <th>Vent</th>
       <th>Direction</th>
@@ -211,6 +212,9 @@ function renderTable(modelData) {
       
       const tempClass = row.temp > 20 ? 'warm' : (row.temp < 12 ? 'cold' : '');
       const tempVal = row.temp !== null ? `${row.temp.toFixed(1)}°C` : '--';
+      
+      const tempAdjustedClass = row.tempAdjusted > 20 ? 'warm' : (row.tempAdjusted < 12 ? 'cold' : '');
+      const tempAdjustedVal = row.tempAdjusted !== null ? `${row.tempAdjusted.toFixed(1)}°C` : '--';
       
       let precipBadge = '<span class="precip-badge precip-none">Sec</span>';
       if (row.precipitation > 0) {
@@ -232,6 +236,7 @@ function renderTable(modelData) {
           </div>
         </td>
         <td class="temp-cell ${tempClass}">${tempVal}</td>
+        <td class="temp-cell ${tempAdjustedClass}" style="font-weight: 600; color: var(--color-primary);">${tempAdjustedVal}</td>
         <td>${precipBadge}</td>
         <td style="font-weight: 500;">${row.windSpeed !== null ? `${Math.round(row.windSpeed)} km/h` : '--'}</td>
         <td>
@@ -248,7 +253,8 @@ function renderTable(modelData) {
       <th>Jour</th>
       <th>Heure</th>
       <th>Temps</th>
-      <th>Temp.</th>
+      <th>Temp. brute</th>
+      <th>Temp. Ajustée (ML)</th>
       <th>Humidité</th>
       <th>Pression</th>
       <th>Nuages</th>
@@ -264,6 +270,10 @@ function renderTable(modelData) {
       
       const tempClass = row.temp > 20 ? 'warm' : (row.temp < 12 ? 'cold' : '');
       const tempVal = row.temp !== null ? `${row.temp.toFixed(1)}°C` : '--';
+      
+      const tempAdjustedClass = row.tempAdjusted > 20 ? 'warm' : (row.tempAdjusted < 12 ? 'cold' : '');
+      const tempAdjustedVal = row.tempAdjusted !== null ? `${row.tempAdjusted.toFixed(1)}°C` : '--';
+      
       const humVal = row.humidity !== null ? `${row.humidity}%` : '--';
       const presVal = row.pressure !== null ? `${Math.round(row.pressure)} hPa` : '--';
       const cloudVal = row.cloudCover !== null ? `${row.cloudCover}%` : '--';
@@ -287,6 +297,7 @@ function renderTable(modelData) {
           </div>
         </td>
         <td class="temp-cell ${tempClass}">${tempVal}</td>
+        <td class="temp-cell ${tempAdjustedClass}" style="font-weight: 600; color: var(--color-primary);">${tempAdjustedVal}</td>
         <td style="color: #818cf8; font-weight: 500;">${humVal}</td>
         <td style="color: #38bdf8;">${presVal}</td>
         <td style="color: #94a3b8;">${cloudVal}</td>
@@ -418,11 +429,21 @@ function renderChart(modelData) {
   accentGradient.addColorStop(1, 'rgba(217, 70, 239, 0)');
 
   if (selectedMode === 'normal') {
-    // Vue Normale: Temp (Line) + Precip (Bar)
+    // Vue Normale: Temp Brute (Line) + Temp Ajustée (Line) + Precip (Bar)
     datasets = [
       {
-        label: 'Température (°C)',
+        label: 'Température brute (°C)',
         data: temperatures,
+        borderColor: '#86868b',
+        borderWidth: 1.5,
+        borderDash: [4, 4],
+        pointRadius: 1,
+        tension: 0.35,
+        yAxisID: 'yTemp'
+      },
+      {
+        label: 'Température Ajustée (ML) (°C)',
+        data: modelData.map(d => d.tempAdjusted),
         borderColor: '#f59e0b',
         borderWidth: 2.5,
         pointBackgroundColor: '#f59e0b',
@@ -472,11 +493,21 @@ function renderChart(modelData) {
       const humidities = modelData.map(d => d.humidity);
       datasets = [
         {
-          label: 'Température (°C)',
+          label: 'Température brute (°C)',
           data: temperatures,
+          borderColor: '#86868b',
+          borderWidth: 1.5,
+          borderDash: [4, 4],
+          pointRadius: 1,
+          tension: 0.35,
+          yAxisID: 'yTemp'
+        },
+        {
+          label: 'Température Ajustée (ML) (°C)',
+          data: modelData.map(d => d.tempAdjusted),
           borderColor: '#f59e0b',
           borderWidth: 2,
-          pointRadius: 1,
+          pointRadius: 1.5,
           tension: 0.35,
           yAxisID: 'yTemp'
         },

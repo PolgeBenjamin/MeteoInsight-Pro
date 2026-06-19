@@ -21,7 +21,9 @@ const memoryCache = {
   presence: null,
   presenceTime: 0,
   heat: null,
-  heatTime: 0
+  heatTime: 0,
+  biasModel: null,
+  biasModelTime: 0
 };
 
 // Helper to fetch JSON from Home Assistant
@@ -217,6 +219,9 @@ app.get('/api/forecasts', async (req, res) => {
       console.warn('Failed to fetch config from Home Assistant, using defaults:', e.message);
     }
 
+    // Load or train AROME bias model coefficients
+    const biasCoeffs = await getBiasModelCoefficients(lat, lon, timezone);
+
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,weather_code,pressure_msl,cloud_cover,wind_speed_10m,wind_gusts_10m,precipitation,wind_direction_10m,direct_radiation,diffuse_radiation&models=meteofrance_arome_france_hd,meteofrance_arpege_europe&timezone=${encodeURIComponent(timezone)}`;
     
     const response = await fetch(url);
@@ -288,11 +293,17 @@ app.get('/api/forecasts', async (req, res) => {
 
         const wInfo = mapWeather(rawCode);
 
+        const fHour = date.getHours();
+        const solarProxy = Math.max(0, Math.cos(((fHour - 13) / 12) * Math.PI));
+        const rawTemp = tList[i];
+        const tempAdjusted = rawTemp + biasCoeffs.beta0 + biasCoeffs.beta1 * rawTemp + biasCoeffs.beta2 * solarProxy;
+
         result.push({
           time: timeStr,
           hourLabel: date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
           dayLabel: date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
           temp: tList[i],
+          tempAdjusted: Math.round(tempAdjusted * 10) / 10,
           humidity: hourly[humKey]?.[i] ?? null,
           pressure: hourly[presKey]?.[i] ?? null,
           cloudCover: hourly[cloudKey]?.[i] ?? null,
@@ -587,6 +598,115 @@ function solveRidgeRegression(samples, lambda = 0.5) {
   return { beta0, beta1, beta2 };
 }
 
+// Helper to fetch and fit AROME bias model against local outdoor temperature history (30 days)
+async function getBiasModelCoefficients(lat, lon, timezone) {
+  const nowTime = Date.now();
+  // Cache for 6 hours
+  if (memoryCache.biasModel && (nowTime - memoryCache.biasModelTime < 6 * 60 * 60 * 1000)) {
+    return memoryCache.biasModel;
+  }
+
+  try {
+    const now = new Date();
+    const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const formatDate = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+    const startDateStr = formatDate(startDate);
+    const endDateStr = formatDate(now);
+
+    // Fetch Home Assistant outdoor temp history
+    const fetchHAHistory = async (entityId) => {
+      const startStr = startDate.toISOString();
+      const endStr = now.toISOString();
+      const url = `${config.HA_URL}/api/history/period/${startStr}?filter_entity_id=${entityId}&end_time=${endStr}`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${config.HA_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error(`HA API returned ${response.status} for ${entityId}`);
+      const data = await response.json();
+      return data[0] || [];
+    };
+
+    // Fetch Open-Meteo archive history
+    const fetchOMArchive = async () => {
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDateStr}&end_date=${endDateStr}&hourly=temperature_2m&timezone=${encodeURIComponent(timezone)}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Open-Meteo Archive returned status ${response.status}`);
+      return await response.json();
+    };
+
+    const [haHistory, omArchive] = await Promise.all([
+      fetchHAHistory(config.entities.outdoor_temp),
+      fetchOMArchive()
+    ]);
+
+    const getStateAt = (history, targetTime) => {
+      let activeState = null;
+      for (const item of history) {
+        const itemTime = new Date(item.last_changed || item.last_updated);
+        if (itemTime <= targetTime) {
+          activeState = item.state;
+        } else {
+          break;
+        }
+      }
+      if (activeState === null && history.length > 0) {
+        activeState = history[0].state;
+      }
+      return activeState;
+    };
+
+    const archiveHourly = omArchive.hourly;
+    const samples = [];
+
+    if (archiveHourly && archiveHourly.time) {
+      for (let i = 0; i < archiveHourly.time.length; i++) {
+        const tStr = archiveHourly.time[i];
+        const tTime = new Date(tStr);
+        const modelTemp = archiveHourly.temperature_2m[i];
+        
+        const localState = getStateAt(haHistory, tTime);
+        const localTemp = parseFloat(localState);
+
+        if (modelTemp !== null && modelTemp !== undefined && !isNaN(localTemp)) {
+          const h = tTime.getHours();
+          const solarProxy = Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
+          samples.push({
+            x1: modelTemp,
+            x2: solarProxy,
+            y: localTemp - modelTemp // bias
+          });
+        }
+      }
+    }
+
+    let beta0 = 0.0, beta1 = 0.0, beta2 = 0.0;
+    if (samples.length > 10) {
+      // Fit Y = beta0 + beta1 * X1 + beta2 * X2 (X1 = modelTemp, X2 = solarProxy, Y = bias)
+      const fit = solveRidgeRegression(samples, 1.0);
+      beta0 = fit.beta0;
+      beta1 = fit.beta1;
+      beta2 = fit.beta2;
+    }
+
+    const result = { beta0, beta1, beta2 };
+    memoryCache.biasModel = result;
+    memoryCache.biasModelTime = nowTime;
+    return result;
+  } catch (error) {
+    console.error('Error training bias model:', error);
+    // Return default (no correction) if training fails
+    return { beta0: 0.0, beta1: 0.0, beta2: 0.0 };
+  }
+}
+
 // Endpoint for heat management advice and ML projection
 app.get('/api/heat-management', async (req, res) => {
   const nowTime = Date.now();
@@ -709,6 +829,9 @@ app.get('/api/heat-management', async (req, res) => {
     } catch (e) {
       console.warn('Failed to fetch config from Home Assistant, using defaults:', e.message);
     }
+
+    // Load or train AROME bias model coefficients
+    const biasCoeffs = await getBiasModelCoefficients(lat, lon, timezone);
 
     const openMeteoUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,direct_radiation,diffuse_radiation&models=meteofrance_arome_france_hd,meteofrance_arpege_europe&timezone=${encodeURIComponent(timezone)}`;
     
@@ -945,7 +1068,10 @@ app.get('/api/heat-management', async (req, res) => {
         const fTime = new Date(f.datetime);
         if (fTime <= now) continue;
 
-        const fTout = f.temperature;
+        const rawfTout = f.temperature;
+        const fHour = fTime.getHours();
+        const solarProxy = Math.max(0, Math.cos(((fHour - 13) / 12) * Math.PI));
+        const fTout = rawfTout + biasCoeffs.beta0 + biasCoeffs.beta1 * rawfTout + biasCoeffs.beta2 * solarProxy;
         const fHout = f.humidity || 50.0;
         const fCondition = f.condition || 'unknown';
         const fWind = f.wind_speed || 0.0;
@@ -975,7 +1101,6 @@ app.get('/api/heat-management', async (req, res) => {
         const crossMultiplier = crossVentilationActive ? 1.5 : 1.0;
         const effectiveSlope = slope * (1 + 0.01 * fWind * (0.4 + 0.6 * windAlignment) * crossMultiplier);
 
-        const fHour = fTime.getHours();
         const fDirectRadiation = f.directRadiation || 0.0;
         const fDiffuseRadiation = f.diffuseRadiation || 0.0;
 
