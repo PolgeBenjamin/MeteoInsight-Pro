@@ -1,125 +1,98 @@
-# MeteoInsight-Pro | Station Météo connectée & Dashboard domotique
+# 🌦️ MeteoInsight-Pro
 
-MeteoInsight-Pro est une console intelligente et moderne de suivi météorologique local et de gestion domotique, interfacée directement avec **Home Assistant**. Elle intègre de la modélisation statistique et des algorithmes de Machine Learning locaux (KNN, régressions linéaires) pour prédire le climat intérieur/extérieur, estimer l'affluence des pièces et fournir des recommandations d'aération adaptées (calculs d'humidité absolue).
+> **Console intelligente de suivi météo local et gestion domotique par Machine Learning, interfacée avec Home Assistant.**
 
-Développé pour un usage personnel et communautaire, MeteoInsight-Pro est entièrement modulable : vous pouvez concevoir votre plan de maison 2D et associer vos capteurs dynamiquement depuis l'interface web, sans modifier une seule ligne de code.
+MeteoInsight-Pro est une application web moderne conçue pour le suivi climatique et la gestion thermique d'un habitat. En s'appuyant sur des prévisions à haute résolution (**Météo-France AROME**) et les données de vos capteurs **Home Assistant**, l'application utilise des modèles d'apprentissage automatique locaux pour corriger les prévisions brutes aux spécificités de votre micro-climat local et optimiser la ventilation de votre logement.
 
 ---
 
 ## 📸 Aperçu de l'Interface
 
-### 1. Tableau de bord principal (Plan 2D)
-![Dashboard principal](assets/dashboard_screenshot.png)
-*Visualisation interactive 2D de votre logement avec calques thermiques, éclairage, humidité relative, mouvements en direct et position animée de votre aspirateur Roborock.*
-
-### 2. Modèles de Prévisions (Heuristiques vs Machine Learning)
-![Prévisions ML vs Heuristiques](assets/forecasts_screenshot.png)
-*Comparaison en temps réel entre les règles physiques empiriques (gradients barométriques) et un modèle KNN local entraîné sur votre historique Home Assistant.*
-
-### 3. Console de Configuration Intégrée
-![Console de Configuration](assets/settings_screenshot.png)
-*Interface d'administration complète et sécurisée pour gérer vos identifiants HA, vos 21 entités de capteurs et la disposition de vos pièces en JSON avec validateur intégré.*
+| 🖥️ Tableau de bord principal | 🌦️ Prévisions ML vs Heuristiques |
+| :---: | :---: |
+| ![Dashboard principal](assets/dashboard_screenshot.png) | ![Prévisions](assets/forecasts_screenshot.png) |
+| *Plan 2D interactif avec calques physiques (thermique, CO2, présence) et suivi en direct Roborock.* | *Comparaison en temps réel des modèles physiques, KNN locaux et corrections de biais AROME.* |
 
 ---
 
 ## 🚀 Fonctionnalités Clés
 
-* **Plan Interactif 2D Dynamique** : Dessiné dynamiquement en SVG sur le client en fonction de vos configurations de pièces. Supporte les calques d'affichage thermique, luminosité ambiante (lux), humidité relative, qualité de l'air (CO2/PM2.5), bruit (dB) et présence.
-* **Prévisions Météo à double modèle** :
-  * *Modèle Physique* : Analyse des tendances de variations barométriques et d'humidité relative à horizon 3h, 6h, 12h et 24h.
-  * *Modèle Machine Learning (KNN)* : Algorithme KNN (K-Nearest Neighbors) auto-entraîné localement sur les 7 derniers jours d'historique de votre station.
-  * *Correction de biais ML (AROME - Micro-climat local)* : Modèle de correction de biais (Ridge Regression) entraîné sur les données réelles locales (Home Assistant) et les archives physiques AROME. Il corrige dynamiquement les prévisions à haute résolution d'AROME pour les adapter au micro-climat réel de la maison (effet d'îlot de chaleur nocturne, ombrage d'après-midi, cycle solaire).
-* **Gestion Thermique & Aération prédictive** :
-  * Calcul en temps réel de l'**Humidité Absolue (g/m³)** intérieure et extérieure pour estimer si l'aération asséchera ou humidifiera l'habitat (confort hygrothermique).
-  * Projections de température à 24h par régression linéaire (utilisant la **température extérieure ajustée par ML (AROME)**, l'exposition des fenêtres de chaque pièce et la vitesse/orientation du vent local).
-  * Calcul de la prochaine heure de croisement des courbes pour afficher un compte à rebours exact avant d'ouvrir ou fermer les fenêtres.
-* **Analyse d'Affluence sur 30 jours** : Agrégation de vos historiques de détecteurs de mouvement sur 30 jours pour dessiner une courbe de rythme d'activité horaire sur 24h et optimiser vos scénarios de chauffage ou d'éclairage.
-* **Contrôle Bidirectionnel Roborock** : Boutons d'action rapides (lancer le nettoyage, retour à la base) et animation dynamique de l'aspirateur en zigzag dans sa pièce de nettoyage actuelle.
-* **Console de Paramétrage Sécurisée** : Sauvegarde immédiate à chaud de vos configurations, avec masquage automatique des jetons de sécurité.
+### 🧠 Intelligence Artificielle & Modèles Prédictifs
+* **Correction de biais ML (AROME)** : Un modèle de régression Ridge (fenêtre glissante de 30 jours) corrige l'effet d'îlot de chaleur nocturne et d'ombrage diurne en comparant les prévisions de grille AROME avec vos mesures réelles de température extérieure.
+* **Prévisions de pluie et de vent (Double Modèle)** :
+  * *Modèle Physique* : Analyse des tendances barométriques locales et d'humidité à court terme.
+  * *Modèle KNN (K-Nearest Neighbors)* : Algorithme auto-entraîné sur l'historique des capteurs de la station.
+* **Projections thermiques des pièces** : Calcul prédictif à 24h de la température de chaque pièce par régression linéaire (prenant en compte l'exposition des fenêtres, la direction/vitesse du vent et la température ajustée par ML).
+
+### 💨 Gestion de l'Aération (Confort Hygrothermique)
+* **Humidité Absolue ($g/m^3$)** : Comparaison de la concentration d'eau réelle dans l'air pour savoir si l'ouverture des fenêtres va réellement assécher ou humidifier le logement.
+* **Indicateur d'Ouverture optimal** : Calcul automatique et compte à rebours précis indiquant la meilleure heure pour ouvrir ou fermer les fenêtres afin de conserver la fraîcheur ou d'assécher l'air.
+
+### 🏡 Cartographie 2D & Domotique
+* **Plan 2D SVG Dynamique** : Dessiné dynamiquement en fonction de la configuration de vos pièces. Supporte les calques d'affichage thermique, lux, humidité, qualité de l'air (CO2/PM2.5), bruit (dB) et présence.
+* **Intégration Aspirateur (Roborock)** : Visualisation de l'aspirateur en direct sur le plan 2D dans sa pièce de nettoyage, avec commandes bidirectionnelles rapides.
+* **Console de Configuration Intégrée** : Interface d'administration complète et sécurisée pour gérer vos jetons de sécurité HA et la disposition géométrique de vos pièces.
 
 ---
 
 ## 🛠️ Installation & Démarrage
 
 ### Prérequis
+* **Node.js** (v18 ou supérieur)
+* Une instance **Home Assistant** fonctionnelle avec un jeton d'accès longue durée (Long-Lived Access Token).
 
-* **Node.js** (v16 ou supérieur)
-* Une instance **Home Assistant** accessible avec un jeton d'accès de longue durée (Long-Lived Access Token).
-
-### 1. Cloner et Installer les Dépendances
-
+### 1. Installation
 ```bash
 git clone https://github.com/PolgeBenjamin/MeteoInsight-Pro.git
 cd MeteoInsight-Pro
 npm install
 ```
 
-### 2. Initialiser la Configuration
-
-Copiez le modèle de configuration par défaut :
-
+### 2. Configuration
+Créez votre fichier de configuration local :
 ```bash
 cp config.json.example config.json
 ```
+*Note : Le fichier `config.json` contient vos secrets locaux et est configuré pour être automatiquement ignoré par Git.*
 
-Démarrez ensuite le serveur et connectez-vous sur l'interface pour saisir vos identifiants Home Assistant et mapper vos capteurs depuis la console.
-
-### 3. Lancer l'Application
-
-En mode développement :
+### 3. Lancement
+En développement :
 ```bash
 npm run dev
 ```
 
-En production avec **PM2** (pour assurer la résilience et le lancement au démarrage) :
+En production avec **PM2** :
 ```bash
-# Installer PM2
 npm install -g pm2
-
-# Lancer l'application
 pm2 start server.js --name "meteo-insight-pro"
-
-# Enregistrer la configuration PM2 au démarrage
-pm2 startup
-pm2 save
+pm2 startup && pm2 save
 ```
 
-L'application est par défaut accessible à l'adresse : `http://localhost:3000` (ou port configuré).
+L'application sera accessible par défaut sur `http://localhost:3000` (ou port configuré).
 
 ---
 
-## 📐 Personnalisation du Plan 2D (JSON)
+## 📐 Exemple de Configuration de Pièce (JSON)
 
-Depuis l'onglet **Plan & Pièces** de la console de configuration, vous pouvez ajuster les coordonnées SVG des pièces de votre maison. Les coordonnées `x`, `y`, `w`, `h` sont relatives à une boîte de dessin globale de **500x500** pixels :
-
+Les dimensions `x, y, w, h` sont définies sur une grille de dessin de `500x500` pixels :
 ```json
 {
-  "id": "cuisine",
-  "label": "Cuisine",
-  "x": 195,
-  "y": 335,
+  "id": "salon",
+  "label": "Salon",
+  "x": 20,
+  "y": 300,
   "w": 160,
-  "h": 145,
-  "tempEntity": "sensor.alexa_cuisine_temperature",
-  "lightEntity": "sensor.alexa_cuisine_eclairement",
-  "motionEntity": "binary_sensor.alexa_cuisine_mouvement",
+  "h": 180,
+  "tempEntity": "sensor.netatmo_temperature",
   "humEntity": "sensor.netatmo_humidite",
+  "motionEntity": "binary_sensor.alexa_salon_mouvement",
+  "windowOrientation": 180,
   "clickable": true
 }
 ```
 
 ---
 
-## 🛡️ Licence & Conditions d'Utilisation
-
+## 🛡️ Licence
 Ce projet est distribué sous la licence **Propriétaire - Usage Personnel et Non-Commercial Uniquement**. 
-
-Vous êtes autorisé à :
-* Utiliser, copier, modifier et adapter ce logiciel à des fins personnelles et éducatives.
-* Partager vos modifications sous forme de contributions au dépôt d'origine.
-
-Il est strictement interdit de :
-* Vendre, louer, concéder sous licence ou utiliser ce logiciel (ou toute partie dérivée) à des fins commerciales.
-* Distribuer ce logiciel sans inclure l'avis de copyright et la licence d'origine.
-
-Pour plus de détails, veuillez consulter le fichier `LICENSE` joint à ce dépôt.
+Pour plus de détails, veuillez consulter le fichier `LICENSE` joint.
