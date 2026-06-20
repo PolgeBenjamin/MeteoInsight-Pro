@@ -111,6 +111,82 @@ function parseState(stateObj) {
   return isNaN(val) ? stateObj.state : val;
 }
 
+// Calculate current active and next forecast run times for AROME/ARPEGE (Météo-France)
+function getModelRunTimes() {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const utcMinute = now.getUTCMinutes();
+  const currentUtcDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  let activeRunHour = 0;
+  let activeRunDay = new Date(currentUtcDay);
+  
+  // AROME/ARPEGE run times:
+  // Run 00 UTC: Available at 04:30 UTC
+  // Run 06 UTC: Available at 10:30 UTC
+  // Run 12 UTC: Available at 16:30 UTC
+  // Run 18 UTC: Available at 22:30 UTC
+
+  const minsNow = utcHour * 60 + utcMinute;
+  
+  if (minsNow < 4 * 60 + 30) {
+    // Before 04:30 UTC, we are on the 18 UTC run of the PREVIOUS day
+    activeRunHour = 18;
+    activeRunDay.setUTCDate(activeRunDay.getUTCDate() - 1);
+  } else if (minsNow < 10 * 60 + 30) {
+    // 04:30 to 10:30 UTC -> 00 UTC run of today
+    activeRunHour = 0;
+  } else if (minsNow < 16 * 60 + 30) {
+    // 10:30 to 16:30 UTC -> 06 UTC run of today
+    activeRunHour = 6;
+  } else if (minsNow < 22 * 60 + 30) {
+    // 16:30 to 22:30 UTC -> 12 UTC run of today
+    activeRunHour = 12;
+  } else {
+    // After 22:30 UTC -> 18 UTC run of today
+    activeRunHour = 18;
+  }
+
+  // Calculate Next Run Availability
+  let nextRunHour = 0;
+  let nextRunDay = new Date(currentUtcDay);
+  let nextAvailableHour = 0;
+  let nextAvailableMinute = 30;
+
+  if (activeRunHour === 18 && activeRunDay.getUTCDate() < currentUtcDay.getUTCDate()) {
+    // Currently on yesterday's 18 UTC run. Next is today's 00 UTC run, available at 04:30 UTC today.
+    nextRunHour = 0;
+    nextAvailableHour = 4;
+  } else if (activeRunHour === 0) {
+    // Currently on 00 UTC. Next is 06 UTC, available at 10:30 UTC.
+    nextRunHour = 6;
+    nextAvailableHour = 10;
+  } else if (activeRunHour === 6) {
+    // Currently on 06 UTC. Next is 12 UTC, available at 16:30 UTC.
+    nextRunHour = 12;
+    nextAvailableHour = 16;
+  } else if (activeRunHour === 12) {
+    // Currently on 12 UTC. Next is 18 UTC, available at 22:30 UTC.
+    nextRunHour = 18;
+    nextAvailableHour = 22;
+  } else {
+    // Currently on 18 UTC. Next is tomorrow's 00 UTC, available at 04:30 UTC tomorrow.
+    nextRunHour = 0;
+    nextRunDay.setUTCDate(nextRunDay.getUTCDate() + 1);
+    nextAvailableHour = 4;
+  }
+
+  const activeRunDate = new Date(Date.UTC(activeRunDay.getUTCFullYear(), activeRunDay.getUTCMonth(), activeRunDay.getUTCDate(), activeRunHour));
+  const nextRunDate = new Date(Date.UTC(nextRunDay.getUTCFullYear(), nextRunDay.getUTCMonth(), nextRunDay.getUTCDate(), nextRunHour));
+  const nextAvailableDate = new Date(Date.UTC(nextRunDay.getUTCFullYear(), nextRunDay.getUTCMonth(), nextRunDay.getUTCDate(), nextAvailableHour, nextAvailableMinute));
+
+  return {
+    activeRun: activeRunDate,
+    nextRun: nextRunDate,
+    nextAvailable: nextAvailableDate
+  };
+}
+
 // Endpoint to get current weather data
 app.get('/api/weather', async (req, res) => {
   const now = Date.now();
@@ -330,8 +406,14 @@ app.get('/api/forecasts', async (req, res) => {
     const aromeForecasts = extractModelData('meteofrance_arome_france_hd');
     const arpegeForecasts = extractModelData('meteofrance_arpege_europe');
 
+    const runTimes = getModelRunTimes();
     const responseData = {
       timestamp: new Date().toISOString(),
+      modelRunTimes: {
+        activeRun: runTimes.activeRun.toISOString(),
+        nextRun: runTimes.nextRun.toISOString(),
+        nextAvailable: runTimes.nextAvailable.toISOString()
+      },
       location: {
         latitude: lat,
         longitude: lon,

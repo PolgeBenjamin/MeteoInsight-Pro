@@ -19,6 +19,7 @@ const elements = {
   infoModelResolution: document.getElementById('info-model-resolution'),
   infoModelHorizon: document.getElementById('info-model-horizon'),
   infoModelUpdated: document.getElementById('info-model-updated'),
+  infoModelNextRun: document.getElementById('info-model-next-run'),
   
   // Table
   tableHeaders: document.getElementById('table-headers'),
@@ -182,9 +183,37 @@ function updateBanner(modelData) {
   
   elements.infoModelHorizon.textContent = `${modelData.length} Heures (${Math.round(modelData.length / 24)}j)`;
   
-  if (apiData.timestamp) {
+  if (apiData.modelRunTimes) {
+    const activeDate = new Date(apiData.modelRunTimes.activeRun);
+    const nextDate = new Date(apiData.modelRunTimes.nextAvailable);
+    
+    const runHourUTC = activeDate.getUTCHours();
+    const runTimeLocal = activeDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    
+    const now = new Date();
+    const isToday = activeDate.getUTCDate() === now.getUTCDate();
+    const dayLabel = isToday ? 'Auj.' : 'Hier';
+    
+    elements.infoModelUpdated.textContent = `Run ${String(runHourUTC).padStart(2, '0')}z à ${runTimeLocal} (${dayLabel})`;
+    elements.infoModelUpdated.style.color = 'var(--color-success)';
+    
+    const nextTimeLocal = nextDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const isNextToday = nextDate.getUTCDate() === now.getUTCDate();
+    const nextDayLabel = isNextToday ? 'Auj.' : 'Demain';
+    
+    if (elements.infoModelNextRun) {
+      const nextRunHourUTC = new Date(apiData.modelRunTimes.nextRun).getUTCHours();
+      elements.infoModelNextRun.textContent = `Run ${String(nextRunHourUTC).padStart(2, '0')}z dispo à ${nextTimeLocal} (${nextDayLabel})`;
+      elements.infoModelNextRun.style.color = 'var(--color-secondary)';
+    }
+  } else if (apiData.timestamp) {
     const d = new Date(apiData.timestamp);
     elements.infoModelUpdated.textContent = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) + ' (Auj.)';
+    elements.infoModelUpdated.style.color = '';
+    if (elements.infoModelNextRun) {
+      elements.infoModelNextRun.textContent = 'Calcul récent';
+      elements.infoModelNextRun.style.color = '';
+    }
   }
 }
 
