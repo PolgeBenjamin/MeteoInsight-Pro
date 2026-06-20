@@ -18,11 +18,11 @@ MeteoInsight-Pro est une application web moderne conçue pour le suivi climatiqu
 ## 🚀 Fonctionnalités Clés
 
 ### 🧠 Intelligence Artificielle & Modèles Prédictifs
-* **Correction de biais ML (AROME)** : Un modèle de régression Ridge (fenêtre glissante de 30 jours) corrige l'effet d'îlot de chaleur nocturne et d'ombrage diurne en comparant les prévisions de grille AROME avec vos mesures réelles de température extérieure.
-* **Prévisions de pluie et de vent (Double Modèle)** :
-  * *Modèle Physique* : Analyse des tendances barométriques locales et d'humidité à court terme.
-  * *Modèle KNN (K-Nearest Neighbors)* : Algorithme auto-entraîné sur l'historique des capteurs de la station.
-* **Projections thermiques des pièces** : Calcul prédictif à 24h de la température de chaque pièce par régression linéaire (prenant en compte l'exposition des fenêtres, la direction/vitesse du vent et la température ajustée par ML).
+* **Double Modèle de Prévisions (Heuristiques vs KNN)** :
+  * *Modèle Physique (Heuristique)* : Analyse des tendances de variations barométriques et d'humidité relative à horizon 3h, 6h, 12h et 24h.
+  * *Modèle Machine Learning (KNN)* : Algorithme KNN (K-Nearest Neighbors) auto-entraîné localement sur les 7 derniers jours d'historique de votre station Home Assistant.
+* **Correction de biais ML (AROME - Micro-climat local)** : Un modèle de régression Ridge régularisée (fenêtre glissante de 30 jours) compare les prévisions de grille AROME avec vos mesures réelles de température extérieure. Il corrige l'effet d'îlot de chaleur nocturne et d'ombrage diurne pour adapter la prévision à la réalité thermique immédiate de la maison.
+* **Projections thermiques des pièces à 24h** : Calcul prédictif de l'évolution de la température intérieure de chaque pièce par régression linéaire (utilisant la **température extérieure ajustée par ML (AROME)**, le rayonnement solaire direct/diffus estimé, l'exposition des fenêtres de chaque pièce et l'impact dynamique de la vitesse/orientation du vent).
 
 ### 💨 Gestion de l'Aération (Confort Hygrothermique)
 * **Humidité Absolue ($g/m^3$)** : Comparaison de la concentration d'eau réelle dans l'air pour savoir si l'ouverture des fenêtres va réellement assécher ou humidifier le logement.
