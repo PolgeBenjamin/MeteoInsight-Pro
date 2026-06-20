@@ -189,6 +189,42 @@
           </div>
         </div>
 
+        <!-- Climatisation Dining Room Control Card -->
+        <div class="section-title">
+          <i data-lucide="wind"></i>
+          <h2>Climatisation Salle à Manger</h2>
+        </div>
+
+        <div class="card ac-card" id="card-ac">
+          <div class="card-bg-gradient" style="background: radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);"></div>
+          <div class="card-header">
+            <div class="header-title-group">
+              <i data-lucide="wind" class="title-icon" style="color: var(--color-primary);"></i>
+              <span class="sensor-source">Climatisation WiFi</span>
+            </div>
+            <span class="badge" id="ac-badge-state" style="background: rgba(107, 114, 128, 0.15); border-color: rgba(107, 114, 128, 0.3); color: #6b7280;">Éteinte</span>
+          </div>
+          
+          <div class="card-body">
+            <div class="ac-status-details" style="display: flex; justify-content: space-between; margin-bottom: 1rem; font-size: 0.85rem;">
+              <div>
+                <span class="sub-label">Équipement</span>
+                <span class="sub-value">Clim Salle à Manger</span>
+              </div>
+              <div style="text-align: right;">
+                <span class="sub-label">Type</span>
+                <span class="sub-value">Alexa (Switch)</span>
+              </div>
+            </div>
+            
+            <div class="ac-actions" style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+              <button class="nav-link" id="btn-ac-toggle" style="flex: 1; justify-content: center; cursor: pointer; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: var(--color-primary);">
+                <i data-lucide="power"></i> Allumer / Éteindre
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Netatmo Salon Details Card -->
         <div class="section-title">
           <i data-lucide="home"></i>

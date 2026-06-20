@@ -22,7 +22,8 @@
     "netatmo_co2": "sensor.netatmo_co2",
     "netatmo_noise": "sensor.netatmo_noise",
     "netatmo_pressure": "sensor.netatmo_pressure",
-    "weather_forecast": "weather.forecast_your_home"
+    "weather_forecast": "weather.forecast_your_home",
+    "dining_ac": "switch.dining_room_ac"
   },
   "rooms": [
     {

@@ -2552,6 +2552,39 @@ body.light-theme .badge-netatmo {
   color: var(--color-primary) !important;
 }
 
+/* Dining AC custom styles */
+.ac-wind-lines {
+  stroke-dasharray: 3, 3;
+}
+
+.ac-active .ac-wind-lines {
+  animation: ac-wind-flow 1s infinite linear;
+}
+
+@keyframes ac-wind-flow {
+  0% {
+    stroke-dashoffset: 6;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.ac-active circle {
+  animation: ac-pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes ac-pulse-glow {
+  0%, 100% {
+    fill: rgba(59, 130, 246, 0.15);
+    stroke: rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    fill: rgba(59, 130, 246, 0.35);
+    stroke: rgba(59, 130, 246, 0.8);
+  }
+}
+
 
 
 

@@ -177,6 +177,9 @@ app.get('/api/weather', async (req, res) => {
         battery: parseState(stateMap[config.entities.roborock_battery]),
         room: stateMap[config.entities.roborock_room] ? stateMap[config.entities.roborock_room].state : null,
         status: stateMap[config.entities.roborock_status] ? stateMap[config.entities.roborock_status].state : null
+      },
+      dining_ac: {
+        state: stateMap[config.entities.dining_ac] ? stateMap[config.entities.dining_ac].state : (memoryCache.dining_ac_state || 'off')
       }
     };
 
@@ -1304,6 +1307,62 @@ app.post('/api/vacuum/action', express.json(), async (req, res) => {
   } catch (error) {
     console.error('Error triggering vacuum action:', error);
     res.status(500).json({ error: error.message || 'Failed to trigger vacuum action' });
+  }
+});
+
+// Endpoint to toggle or trigger climatisation action
+app.post('/api/clim/toggle', express.json(), async (req, res) => {
+  try {
+    const entityId = config.entities.dining_ac || 'switch.clim';
+    
+    // Check if the entity exists in HA
+    const states = await fetchHAStates();
+    const hasHAEntity = states.some(s => s.entity_id === entityId);
+    
+    let newState = 'off';
+    
+    if (hasHAEntity) {
+      // Toggle it in Home Assistant
+      const url = `${config.HA_URL}/api/services/homeassistant/toggle`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.HA_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          entity_id: entityId
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Home Assistant API returned status code ${response.status}`);
+      }
+      
+      // Fetch the updated state
+      const stateUrl = `${config.HA_URL}/api/states/${entityId}`;
+      const stateRes = await fetch(stateUrl, {
+        headers: {
+          'Authorization': `Bearer ${config.HA_TOKEN}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (stateRes.ok) {
+        const stateData = await stateRes.json();
+        newState = stateData.state;
+        memoryCache.dining_ac_state = newState;
+      }
+    } else {
+      // Toggle virtual state in memory cache
+      newState = (memoryCache.dining_ac_state === 'on') ? 'off' : 'on';
+      memoryCache.dining_ac_state = newState;
+    }
+    
+    memoryCache.weatherTime = 0; // force refresh
+    res.json({ success: true, state: newState, isVirtual: !hasHAEntity });
+  } catch (error) {
+    console.error('Error toggling AC:', error);
+    res.status(500).json({ error: error.message || 'Failed to toggle AC' });
   }
 });
 

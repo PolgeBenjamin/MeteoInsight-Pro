@@ -61,7 +61,11 @@ const elements = {
   vacuumRoom: document.getElementById('vacuum-room'),
   vacuumBattery: document.getElementById('vacuum-battery'),
   btnVacuumStart: document.getElementById('btn-vacuum-start'),
-  btnVacuumDock: document.getElementById('btn-vacuum-dock')
+  btnVacuumDock: document.getElementById('btn-vacuum-dock'),
+
+  // AC Card Controls
+  acBadgeState: document.getElementById('ac-badge-state'),
+  btnAcToggle: document.getElementById('btn-ac-toggle')
 };
 
 // Map Alexa Rooms to Lucide Icons
@@ -96,6 +100,9 @@ function init() {
 
   // Set up vacuum controls event listeners
   setupVacuumControls();
+
+  // Set up AC controls event listeners
+  setupACControls();
 }
 
 // Fetch configuration from server to draw SVG floor plan dynamically
@@ -176,6 +183,35 @@ function drawRoomsSVG(rooms) {
         soundG.appendChild(circle);
       }
       roomG.appendChild(soundG);
+    }
+
+    // Salle à manger features like ac indicator
+    if (room.id === 'salle_a_manger') {
+      const acIndicator = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      acIndicator.id = 'svg-ac-indicator';
+      acIndicator.setAttribute('class', 'ac-indicator-container');
+      acIndicator.style.display = 'none'; // hidden by default
+
+      // Small background circle
+      const circ = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circ.setAttribute('cx', room.x + room.w - 25);
+      circ.setAttribute('cy', room.y + 25);
+      circ.setAttribute('r', 12);
+      circ.setAttribute('fill', 'rgba(59, 130, 246, 0.15)');
+      circ.setAttribute('stroke', 'rgba(59, 130, 246, 0.4)');
+      circ.setAttribute('stroke-width', '1.5');
+      acIndicator.appendChild(circ);
+
+      // Simple wind symbol (3 lines) in SVG
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute('d', `M ${room.x + room.w - 30} ${room.y + 22} h 8 M ${room.x + room.w - 32} ${room.y + 25} h 12 M ${room.x + room.w - 29} ${room.y + 28} h 7`);
+      path.setAttribute('stroke', 'var(--color-primary)');
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('class', 'ac-wind-lines');
+      acIndicator.appendChild(path);
+
+      roomG.appendChild(acIndicator);
     }
 
     const addText = (cls, dy, text) => {
@@ -797,6 +833,9 @@ function updateRobovac(roborock) {
     robovacGroup.insertBefore(titleEl, robovacGroup.firstChild);
   }
   titleEl.textContent = `Roborock Qrevo : ${label}${roomInfo}${batteryInfo}`;
+
+  // 8. CLIMATISATION CARD & SVG INDICATOR
+  updateACBadgeState(data.dining_ac?.state);
 }
 
 // Setup Vacuum button listeners for POST requests to Node server
@@ -839,6 +878,59 @@ function setupVacuumControls() {
         elements.btnVacuumDock.disabled = false;
       }
     });
+  }
+}
+
+// Setup AC button listeners
+function setupACControls() {
+  if (elements.btnAcToggle) {
+    elements.btnAcToggle.addEventListener('click', async () => {
+      elements.btnAcToggle.disabled = true;
+      try {
+        const res = await fetch('api/clim/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!res.ok) throw new Error('Failed to toggle AC');
+        const data = await res.json();
+        // Update state immediately
+        updateACBadgeState(data.state);
+        setTimeout(fetchWeatherData, 1000);
+      } catch (err) {
+        console.error(err);
+        alert('Erreur lors du pilotage de la climatisation');
+      } finally {
+        elements.btnAcToggle.disabled = false;
+      }
+    });
+  }
+}
+
+function updateACBadgeState(state) {
+  if (!elements.acBadgeState) return;
+  const isOn = state === 'on';
+  elements.acBadgeState.textContent = isOn ? 'Allumée' : 'Éteinte';
+  
+  if (isOn) {
+    elements.acBadgeState.style.background = 'rgba(59, 130, 246, 0.15)';
+    elements.acBadgeState.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+    elements.acBadgeState.style.color = 'var(--color-primary)';
+  } else {
+    elements.acBadgeState.style.background = 'rgba(107, 114, 128, 0.15)';
+    elements.acBadgeState.style.borderColor = 'rgba(107, 114, 128, 0.3)';
+    elements.acBadgeState.style.color = '#6b7280';
+  }
+
+  // Update SVG indicator class as well
+  const acSvg = document.getElementById('svg-ac-indicator');
+  if (acSvg) {
+    if (isOn) {
+      acSvg.style.display = 'block';
+      acSvg.classList.add('ac-active');
+    } else {
+      acSvg.style.display = 'none';
+      acSvg.classList.remove('ac-active');
+    }
   }
 }
 
