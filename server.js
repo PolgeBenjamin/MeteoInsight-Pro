@@ -983,6 +983,20 @@ app.get('/api/heat-management', async (req, res) => {
         });
       }
 
+      // Compute 24h rolling average of Tout for wall thermal inertia
+      for (let i = 0; i < dataset.length; i++) {
+        let sumTout = 0;
+        let countTout = 0;
+        const startIdx = Math.max(0, i - 24);
+        for (let k = startIdx; k <= i; k++) {
+          if (dataset[k].tout !== null) {
+            sumTout += dataset[k].tout;
+            countTout++;
+          }
+        }
+        dataset[i].tout24h = countTout > 0 ? (sumTout / countTout) : (dataset[i].tout || 20.0);
+      }
+
       const getRoomSolarProxy = (h, orientation) => {
         if (orientation === null || orientation === undefined) {
           return Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
@@ -990,7 +1004,14 @@ app.get('/api/heat-management', async (req, res) => {
         const sunAzimuth = 90 + (h - 6) * 15;
         const diffAngle = Math.abs(sunAzimuth - orientation) % 360;
         const absDiff = diffAngle > 180 ? 360 - diffAngle : diffAngle;
-        const cosIncidence = Math.max(0, Math.cos(absDiff * Math.PI / 180));
+        
+        let solarElevationRad = 0.0;
+        if (h >= 6 && h <= 20) {
+          const maxElevation = 60 * Math.PI / 180;
+          solarElevationRad = maxElevation * Math.cos(((h - 13) / 7) * Math.PI / 2);
+        }
+        
+        const cosIncidence = Math.max(0, Math.cos(solarElevationRad) * Math.cos(absDiff * Math.PI / 180));
         return (h >= 6 && h <= 20) ? cosIncidence : 0.0;
       };
 
@@ -998,11 +1019,15 @@ app.get('/api/heat-management', async (req, res) => {
       for (let i = 0; i < dataset.length - 1; i++) {
         const curr = dataset[i];
         const next = dataset[i + 1];
-        if (curr.tin !== null && curr.tout !== null && next.tin !== null && !curr.isAcOn) {
+        if (curr.tin !== null && curr.tout !== null && curr.tout24h !== null && next.tin !== null && !curr.isAcOn) {
           const h = curr.time.getHours();
           const solarProxy = getRoomSolarProxy(h, roomConf.windowOrientation);
+          
+          // Effective outdoor temp is 70% current Tout and 30% Tout 24h average
+          const toutEffective = 0.7 * curr.tout + 0.3 * curr.tout24h;
+          
           samples.push({
-            x1: curr.tin - curr.tout,
+            x1: curr.tin - toutEffective,
             x2: solarProxy,
             y: next.tin - curr.tin
           });
@@ -1092,6 +1117,18 @@ app.get('/api/heat-management', async (req, res) => {
         isFavorable: curIsFavorable
       });
 
+      // Initialize recent Tout history with last 24 hours of data for wall thermal inertia
+      const recentToutHistory = [];
+      const historyStartIdx = Math.max(0, dataset.length - 24);
+      for (let k = historyStartIdx; k < dataset.length; k++) {
+        if (dataset[k].tout !== null) {
+          recentToutHistory.push(dataset[k].tout);
+        }
+      }
+      while (recentToutHistory.length < 24) {
+        recentToutHistory.unshift(curTout);
+      }
+
       let runningTin = curRoomTin;
       let runningTinAH = curTinAH;
       let lastTime = now;
@@ -1115,6 +1152,18 @@ app.get('/api/heat-management', async (req, res) => {
         const dt = (fTime - lastTime) / (1000 * 60 * 60);
         lastTime = fTime;
 
+        // Calculate rolling 24h average for wall inertia
+        const fTout24h = recentToutHistory.reduce((sum, v) => sum + v, 0) / recentToutHistory.length;
+        
+        // Update recent Tout history for the next steps
+        recentToutHistory.push(fTout);
+        if (recentToutHistory.length > 24) {
+          recentToutHistory.shift();
+        }
+        
+        // Effective outdoor temp is 70% current Tout and 30% Tout 24h average
+        const toutEffective = 0.7 * fTout + 0.3 * fTout24h;
+
         // Calculate wind-alignment factor
         let windAlignment = 1.0;
         let crossVentilationActive = false;
@@ -1131,21 +1180,28 @@ app.get('/api/heat-management', async (req, res) => {
           }
         }
 
-        // Slope acceleration based on speed, orientation, and cross-ventilation multiplier (1.5x)
+        // Slope acceleration based on wind speed (sub-linear square-root scaling), wind orientation, and cross-ventilation (1.5x)
         const crossMultiplier = crossVentilationActive ? 1.5 : 1.0;
-        const effectiveSlope = slope * (1 + 0.01 * fWind * (0.4 + 0.6 * windAlignment) * crossMultiplier);
+        const effectiveSlope = slope * (1 + 0.04 * Math.sqrt(fWind) * (0.4 + 0.6 * windAlignment) * crossMultiplier);
 
         const fDirectRadiation = f.directRadiation || 0.0;
         const fDiffuseRadiation = f.diffuseRadiation || 0.0;
 
-        // Simple sun azimuth estimation (6h = 90deg, 12h = 180deg, 18h = 270deg)
+        // Sun azimuth and elevation estimation
         const sunAzimuth = 90 + (fHour - 6) * 15;
         let cosIncidence = 0.0;
         if (roomConf.windowOrientation !== null) {
           const diffAngle = Math.abs(sunAzimuth - roomConf.windowOrientation) % 360;
           const absDiff = diffAngle > 180 ? 360 - diffAngle : diffAngle;
-          // Direct light only hits if sun is in front of window (within 90 degrees)
-          cosIncidence = Math.max(0, Math.cos(absDiff * Math.PI / 180));
+          
+          let solarElevationRad = 0.0;
+          if (fHour >= 6 && fHour <= 20) {
+            const maxElevation = 60 * Math.PI / 180;
+            solarElevationRad = maxElevation * Math.cos(((fHour - 13) / 7) * Math.PI / 2);
+          }
+          
+          // Direct light cosine incidence on vertical window
+          cosIncidence = Math.max(0, Math.cos(solarElevationRad) * Math.cos(absDiff * Math.PI / 180));
         }
 
         // Calculate solar irradiance on window in W/m² (direct + diffuse sky visibility)
@@ -1155,7 +1211,7 @@ app.get('/api/heat-management', async (req, res) => {
         const solarGain = solarCoeff * (solarIrradiance / 1000.0);
         const effectiveIntercept = intercept + solarGain;
 
-        const nextTin = runningTin + dt * (effectiveSlope * (runningTin - fTout) + effectiveIntercept);
+        const nextTin = runningTin + dt * (effectiveSlope * (runningTin - toutEffective) + effectiveIntercept);
         
         const fToutAH = calculateAH(fTout, fHout);
         const nextTinAH = runningTinAH + dt * 0.02 * (fToutAH - runningTinAH);
