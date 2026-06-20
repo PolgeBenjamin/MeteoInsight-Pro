@@ -240,6 +240,25 @@
       color: #818cf8;
       font-weight: 600;
     }
+    
+    .temp-delta {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      margin-left: 0.35rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.1rem;
+    }
+    .temp-delta.delta-up {
+      background: rgba(244, 63, 94, 0.12);
+      color: #f43f5e;
+    }
+    .temp-delta.delta-down {
+      background: rgba(14, 165, 233, 0.12);
+      color: #0ea5e9;
+    }
   </style>
 </head>
 <body>
@@ -309,9 +328,20 @@
 
     <!-- Main Forecast Table Grid -->
     <section class="grid-section">
-      <div class="section-title" style="margin-bottom: 1rem;">
-        <i data-lucide="calendar"></i>
-        <h2>Prévisions Heure par Heure</h2>
+      <div class="section-title" style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="calendar"></i>
+          <h2>Prévisions Heure par Heure</h2>
+        </div>
+        <div id="compare-run-container" style="display: none; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 0.8rem; color: var(--text-dim); font-weight: 500; font-family: var(--font-body);">Comparer avec :</span>
+          <div class="mode-selector" id="compare-run-selector">
+            <button class="mode-btn active" data-compare="1">Run -1</button>
+            <button class="mode-btn" data-compare="2">Run -2</button>
+            <button class="mode-btn" data-compare="3">Run -3</button>
+            <button class="mode-btn" data-compare="4">Run -4</button>
+          </div>
+        </div>
       </div>
 
       <div class="forecast-table-container">

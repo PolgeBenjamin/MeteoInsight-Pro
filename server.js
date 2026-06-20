@@ -111,6 +111,23 @@ function parseState(stateObj) {
   return isNaN(val) ? stateObj.state : val;
 }
 
+// Get the previous model run date relative to the active run date
+function getPreviousRunDate(activeRunDate) {
+  const d = new Date(activeRunDate);
+  const utcHour = d.getUTCHours();
+  if (utcHour === 0) {
+    d.setUTCDate(d.getUTCDate() - 1);
+    d.setUTCHours(18);
+  } else if (utcHour === 6) {
+    d.setUTCHours(0);
+  } else if (utcHour === 12) {
+    d.setUTCHours(6);
+  } else {
+    d.setUTCHours(12);
+  }
+  return d;
+}
+
 // Calculate current active and next forecast run times for AROME/ARPEGE (Météo-France)
 function getModelRunTimes() {
   const now = new Date();
@@ -315,6 +332,88 @@ app.get('/api/forecasts', async (req, res) => {
       throw new Error('Malformed hourly data in Open-Meteo response');
     }
 
+    // Fetch previous run forecasts for temperature comparison (Météo-France)
+    // We fetch the last 4 runs (Run -1 to Run -4)
+    const runTimes = getModelRunTimes();
+    const prevAromeRuns = [];
+    const prevArpegeRuns = [];
+    
+    try {
+      const prevRuns = [];
+      let d = new Date(runTimes.activeRun);
+      for (let i = 1; i <= 4; i++) {
+        const utcHour = d.getUTCHours();
+        if (utcHour === 0) {
+          d.setUTCDate(d.getUTCDate() - 1);
+          d.setUTCHours(18);
+        } else if (utcHour === 6) {
+          d.setUTCHours(0);
+        } else if (utcHour === 12) {
+          d.setUTCHours(6);
+        } else {
+          d.setUTCHours(12);
+        }
+        prevRuns.push({
+          label: `Run -${i}`,
+          utcTime: d.toISOString(),
+          runISO: d.toISOString().substring(0, 16)
+        });
+      }
+
+      // Fetch all 4 runs in parallel (each request retrieves both AROME and ARPEGE)
+      const fetchPromises = prevRuns.map(async (runInfo) => {
+        const url = `https://single-runs-api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m&models=meteofrance_arome_france_hd,meteofrance_arpege_europe&run=${runInfo.runISO}&timezone=${encodeURIComponent(timezone)}`;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const data = await res.json();
+          return {
+            runInfo,
+            data
+          };
+        } catch (err) {
+          console.warn(`Failed to fetch run ${runInfo.runISO}:`, err.message);
+          return null;
+        }
+      });
+
+      const runResults = await Promise.all(fetchPromises);
+
+      runResults.forEach(result => {
+        if (!result || !result.data || !result.data.hourly || !result.data.hourly.time) return;
+        
+        const hourlyData = result.data.hourly;
+        const aromeMap = {};
+        const arpegeMap = {};
+        const aromeKey = 'temperature_2m_meteofrance_arome_france_hd';
+        const arpegeKey = 'temperature_2m_meteofrance_arpege_europe';
+
+        for (let i = 0; i < hourlyData.time.length; i++) {
+          const timeStr = hourlyData.time[i];
+          if (hourlyData[aromeKey] && hourlyData[aromeKey][i] !== null && hourlyData[aromeKey][i] !== undefined) {
+            aromeMap[timeStr] = hourlyData[aromeKey][i];
+          }
+          if (hourlyData[arpegeKey] && hourlyData[arpegeKey][i] !== null && hourlyData[arpegeKey][i] !== undefined) {
+            arpegeMap[timeStr] = hourlyData[arpegeKey][i];
+          }
+        }
+
+        prevAromeRuns.push({
+          label: result.runInfo.label,
+          utcTime: result.runInfo.utcTime,
+          map: aromeMap
+        });
+
+        prevArpegeRuns.push({
+          label: result.runInfo.label,
+          utcTime: result.runInfo.utcTime,
+          map: arpegeMap
+        });
+      });
+    } catch (err) {
+      console.warn('Failed to fetch previous run forecasts:', err.message);
+    }
+
     const mapWeather = (code) => {
       if (code === 0) return { label: 'Ensoleillé', icon: 'sun' };
       if (code === 1) return { label: 'Principalement dégagé', icon: 'cloud-sun' };
@@ -350,6 +449,7 @@ app.get('/api/forecasts', async (req, res) => {
       const diffuseKey = `diffuse_radiation_${suffix}`;
 
       const tList = hourly[tempKey] || [];
+      const prevRunsList = suffix.includes('arome') ? prevAromeRuns : prevArpegeRuns;
 
       const result = [];
       for (let i = 0; i < tList.length; i++) {
@@ -380,12 +480,29 @@ app.get('/api/forecasts', async (req, res) => {
         const rawTemp = tList[i];
         const tempAdjusted = rawTemp + biasCoeffs.beta0 + biasCoeffs.beta1 * rawTemp + biasCoeffs.beta2 * solarProxy;
 
+        const history = [];
+        prevRunsList.forEach(runObj => {
+          const prevTemp = runObj.map[timeStr];
+          if (prevTemp !== undefined && prevTemp !== null) {
+            const tempAdjustedPrevious = Math.round((prevTemp + biasCoeffs.beta0 + biasCoeffs.beta1 * prevTemp + biasCoeffs.beta2 * solarProxy) * 10) / 10;
+            history.push({
+              label: runObj.label,
+              utcTime: runObj.utcTime,
+              temp: prevTemp,
+              tempAdjusted: tempAdjustedPrevious
+            });
+          }
+        });
+
         result.push({
           time: timeStr,
           hourLabel: date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
           dayLabel: date.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }),
           temp: tList[i],
           tempAdjusted: Math.round(tempAdjusted * 10) / 10,
+          tempPrevious: history[0] ? history[0].temp : null,
+          tempAdjustedPrevious: history[0] ? history[0].tempAdjusted : null,
+          history: history,
           humidity: hourly[humKey]?.[i] ?? null,
           pressure: hourly[presKey]?.[i] ?? null,
           cloudCover: hourly[cloudKey]?.[i] ?? null,
@@ -406,7 +523,6 @@ app.get('/api/forecasts', async (req, res) => {
     const aromeForecasts = extractModelData('meteofrance_arome_france_hd');
     const arpegeForecasts = extractModelData('meteofrance_arpege_europe');
 
-    const runTimes = getModelRunTimes();
     const responseData = {
       timestamp: new Date().toISOString(),
       modelRunTimes: {

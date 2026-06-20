@@ -4,6 +4,7 @@
 let selectedModel = 'arome'; // 'arome' or 'arpege'
 let selectedMode = 'normal'; // 'normal' or 'detailed'
 let selectedDetailedChartTab = 'temp-hum'; // 'temp-hum', 'wind', 'clouds-rain', 'pressure'
+let selectedCompareRun = 1; // 1 to 4 (Run -1 to Run -4)
 let weatherChart = null;
 let apiData = null;
 
@@ -26,7 +27,11 @@ const elements = {
   tableBody: document.getElementById('table-body'),
   
   // Chart Controls
-  chartControlsTabs: document.getElementById('chart-controls-tabs')
+  chartControlsTabs: document.getElementById('chart-controls-tabs'),
+  
+  // Comparison
+  compareRunContainer: document.getElementById('compare-run-container'),
+  compareRunSelector: document.getElementById('compare-run-selector')
 };
 
 // Initialize Page
@@ -63,13 +68,25 @@ function setupSelectors() {
   });
 
   // Mode buttons
-  const modeBtns = document.querySelectorAll('.mode-btn');
+  const modeBtns = document.querySelectorAll('.mode-btn[data-mode]');
   modeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       if (btn.classList.contains('active')) return;
       modeBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedMode = btn.getAttribute('data-mode');
+      updateUI();
+    });
+  });
+
+  // Compare run buttons
+  const compareBtns = document.querySelectorAll('#compare-run-selector .mode-btn');
+  compareBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('active')) return;
+      compareBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedCompareRun = parseInt(btn.getAttribute('data-compare'), 10);
       updateUI();
     });
   });
@@ -152,6 +169,11 @@ function updateUI() {
   if (!apiData) return;
   
   const modelData = selectedModel === 'arome' ? apiData.arome : apiData.arpege;
+  
+  // Show/Hide Compare Run Selector
+  if (elements.compareRunContainer) {
+    elements.compareRunContainer.style.display = selectedMode === 'detailed' ? 'flex' : 'none';
+  }
   
   // 1. Update Banner
   updateBanner(modelData);
@@ -303,6 +325,61 @@ function renderTable(modelData) {
       const tempAdjustedClass = row.tempAdjusted > 20 ? 'warm' : (row.tempAdjusted < 12 ? 'cold' : '');
       const tempAdjustedVal = row.tempAdjusted !== null ? `${row.tempAdjusted.toFixed(1)}°C` : '--';
       
+      // Look up target run in history for comparison
+      const compareItem = row.history ? row.history.find(h => h.label === `Run -${selectedCompareRun}`) : null;
+      
+      // Build multiline tooltip for temperature
+      let tempTitle = `Run Actuel : ${row.temp.toFixed(1)}°C`;
+      if (row.history && row.history.length > 0) {
+        const historyLines = row.history.map(h => {
+          const diff = row.temp - h.temp;
+          const diffSign = diff > 0 ? '+' : '';
+          const arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '=');
+          return `${h.label} (${new Date(h.utcTime).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}) : ${h.temp.toFixed(1)}°C [${arrow} ${diffSign}${diff.toFixed(1)}°C]`;
+        });
+        tempTitle += '\n' + historyLines.join('\n');
+      }
+
+      // Build delta badge
+      let tempDiffHtml = '';
+      if (compareItem) {
+        const diff = row.temp - compareItem.temp;
+        if (Math.abs(diff) >= 0.1) {
+          const diffSign = diff > 0 ? '+' : '';
+          const diffClass = diff > 0 ? 'delta-up' : 'delta-down';
+          const arrow = diff > 0 ? '▲' : '▼';
+          tempDiffHtml = `<span class="temp-delta ${diffClass}">${arrow} ${diffSign}${diff.toFixed(1)}°</span>`;
+        } else {
+          tempDiffHtml = `<span class="temp-delta" style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.65rem;">= 0.0°</span>`;
+        }
+      }
+
+      // Build multiline tooltip for adjusted temperature
+      let tempAdjustedTitle = `Run Actuel (Ajusté) : ${row.tempAdjusted.toFixed(1)}°C`;
+      if (row.history && row.history.length > 0) {
+        const historyAdjustedLines = row.history.map(h => {
+          const diff = row.tempAdjusted - h.tempAdjusted;
+          const diffSign = diff > 0 ? '+' : '';
+          const arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '=');
+          return `${h.label} (Ajusté) : ${h.tempAdjusted.toFixed(1)}°C [${arrow} ${diffSign}${diff.toFixed(1)}°C]`;
+        });
+        tempAdjustedTitle += '\n' + historyAdjustedLines.join('\n');
+      }
+
+      // Build adjusted delta badge
+      let tempAdjustedDiffHtml = '';
+      if (compareItem) {
+        const diff = row.tempAdjusted - compareItem.tempAdjusted;
+        if (Math.abs(diff) >= 0.1) {
+          const diffSign = diff > 0 ? '+' : '';
+          const diffClass = diff > 0 ? 'delta-up' : 'delta-down';
+          const arrow = diff > 0 ? '▲' : '▼';
+          tempAdjustedDiffHtml = `<span class="temp-delta ${diffClass}">${arrow} ${diffSign}${diff.toFixed(1)}°</span>`;
+        } else {
+          tempAdjustedDiffHtml = `<span class="temp-delta" style="background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 0.65rem;">= 0.0°</span>`;
+        }
+      }
+
       const humVal = row.humidity !== null ? `${row.humidity}%` : '--';
       const presVal = row.pressure !== null ? `${Math.round(row.pressure)} hPa` : '--';
       const cloudVal = row.cloudCover !== null ? `${row.cloudCover}%` : '--';
@@ -325,8 +402,8 @@ function renderTable(modelData) {
             <span>${row.weatherLabel}</span>
           </div>
         </td>
-        <td class="temp-cell ${tempClass}">${tempVal}</td>
-        <td class="temp-cell ${tempAdjustedClass}" style="font-weight: 600; color: var(--color-primary);">${tempAdjustedVal}</td>
+        <td class="temp-cell ${tempClass}" title="${tempTitle}">${tempVal}${tempDiffHtml}</td>
+        <td class="temp-cell ${tempAdjustedClass}" style="font-weight: 600; color: var(--color-primary);" title="${tempAdjustedTitle}">${tempAdjustedVal}${tempAdjustedDiffHtml}</td>
         <td style="color: #818cf8; font-weight: 500;">${humVal}</td>
         <td style="color: #38bdf8;">${presVal}</td>
         <td style="color: #94a3b8;">${cloudVal}</td>
@@ -532,11 +609,38 @@ function renderChart(modelData) {
           yAxisID: 'yTemp'
         },
         {
+          label: `Temp. brute (Run -${selectedCompareRun}) (°C)`,
+          data: modelData.map(d => {
+            const h = d.history ? d.history.find(item => item.label === `Run -${selectedCompareRun}`) : null;
+            return h ? h.temp : null;
+          }),
+          borderColor: 'rgba(134, 134, 139, 0.35)',
+          borderWidth: 1,
+          borderDash: [6, 6],
+          pointRadius: 0,
+          tension: 0.35,
+          yAxisID: 'yTemp',
+          hidden: true
+        },
+        {
           label: 'Température Ajustée (ML) (°C)',
           data: modelData.map(d => d.tempAdjusted),
           borderColor: '#f59e0b',
           borderWidth: 2,
           pointRadius: 1.5,
+          tension: 0.35,
+          yAxisID: 'yTemp'
+        },
+        {
+          label: `Temp. Ajustée (Run -${selectedCompareRun}) (°C)`,
+          data: modelData.map(d => {
+            const h = d.history ? d.history.find(item => item.label === `Run -${selectedCompareRun}`) : null;
+            return h ? h.tempAdjusted : null;
+          }),
+          borderColor: 'rgba(245, 158, 11, 0.45)',
+          borderWidth: 1.5,
+          borderDash: [3, 3],
+          pointRadius: 0,
           tension: 0.35,
           yAxisID: 'yTemp'
         },
