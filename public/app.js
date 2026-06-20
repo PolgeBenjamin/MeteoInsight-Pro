@@ -230,6 +230,13 @@ function drawRoomsSVG(rooms) {
     // Draw window indicator if windowOrientation is present
     if (room.windowOrientation !== null && room.windowOrientation !== undefined) {
       const angle = (room.windowOrientation + 360) % 360;
+      // The SVG floor plan is rotated 180 degrees compared to standard compass directions:
+      // - North (0°) is at the Bottom
+      // - East (90°) is at the Left
+      // - South (180°) is at the Top
+      // - West (270°) is at the Right
+      // To display the windows on the correct outer walls, we rotate the angle by 180 degrees visually.
+      const visualAngle = (angle + 180) % 360;
       const winRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
       winRect.setAttribute('fill', '#38bdf8');
       winRect.setAttribute('stroke', '#0ea5e9');
@@ -244,22 +251,22 @@ function drawRoomsSVG(rooms) {
       const length = 28;
       const thickness = 5;
 
-      if (angle >= 315 || angle < 45) { // North
+      if (visualAngle >= 315 || visualAngle < 45) { // North on plan (physical South) -> Top wall
         winRect.setAttribute('x', room.x + room.w / 2 - length / 2);
         winRect.setAttribute('y', room.y - thickness / 2);
         winRect.setAttribute('width', length);
         winRect.setAttribute('height', thickness);
-      } else if (angle >= 45 && angle < 135) { // East
+      } else if (visualAngle >= 45 && visualAngle < 135) { // East on plan (physical West) -> Right wall
         winRect.setAttribute('x', room.x + room.w - thickness / 2);
         winRect.setAttribute('y', room.y + room.h / 2 - length / 2);
         winRect.setAttribute('width', thickness);
         winRect.setAttribute('height', length);
-      } else if (angle >= 135 && angle < 225) { // South
+      } else if (visualAngle >= 135 && visualAngle < 225) { // South on plan (physical North) -> Bottom wall
         winRect.setAttribute('x', room.x + room.w / 2 - length / 2);
         winRect.setAttribute('y', room.y + room.h - thickness / 2);
         winRect.setAttribute('width', length);
         winRect.setAttribute('height', thickness);
-      } else { // West
+      } else { // West on plan (physical East) -> Left wall
         winRect.setAttribute('x', room.x - thickness / 2);
         winRect.setAttribute('y', room.y + room.h / 2 - length / 2);
         winRect.setAttribute('width', thickness);
