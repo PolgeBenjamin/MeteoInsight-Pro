@@ -10,7 +10,7 @@ MeteoInsight-Pro est une application web moderne conçue pour le suivi climatiqu
 
 | 🖥️ Tableau de bord principal | 🌦️ Température Brute vs Ajustée (ML) |
 | :---: | :---: |
-| ![Dashboard principal](assets/dashboard_screenshot.png) | ![Prévisions](assets/forecasts_screenshot.png) |
+| ![Dashboard principal](assets/dashboard_screenshot.png?v=2) | ![Prévisions](assets/forecasts_screenshot.png?v=2) |
 | *Plan 2D interactif avec calques physiques (thermique, CO2, présence) et suivi en direct Roborock.* | *Comparaison en temps réel des prévisions brutes AROME/ARPEGE et de la prévision ajustée par le modèle de biais ML.* |
 
 ---
