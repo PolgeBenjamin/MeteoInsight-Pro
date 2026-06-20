@@ -33,6 +33,7 @@ MeteoInsight-Pro est une application web moderne conçue pour le suivi climatiqu
 * **Plan 2D SVG Dynamique** : Dessiné en SVG sur le client en fonction de la configuration de vos pièces. Supporte les calques d'affichage thermique, lux, humidité, qualité de l'air (CO2/PM2.5), bruit (dB) et présence.
 * **Intégration Aspirateur (Roborock)** : Visualisation en direct de l'aspirateur sur le plan 2D dans sa pièce de nettoyage, avec commandes bidirectionnelles rapides.
 * **Console de Paramétrage Sécurisée** : Interface d'administration sécurisée pour configurer les jetons d'accès Home Assistant et éditer la disposition géométrique de vos pièces en JSON avec validateur intégré.
+* **Thèmes Sombre & Apple Light** : Support complet d'un thème sombre immersif et d'un thème clair minimaliste (style Apple) avec transitions fluides, sélectionnable en un clic depuis la barre de navigation.
 
 ---
 
