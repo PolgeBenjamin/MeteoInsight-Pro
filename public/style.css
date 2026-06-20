@@ -1738,6 +1738,26 @@ h1, h2, h3, .temp-value {
   border-color: rgba(239, 68, 68, 0.35);
 }
 
+/* Grey disabled / no window style */
+.hublot-none {
+  background: radial-gradient(circle, rgba(148, 163, 184, 0.15) 0%, rgba(148, 163, 184, 0.03) 70%, transparent 100%);
+  border: 2px solid rgba(148, 163, 184, 0.25);
+  box-shadow: none;
+}
+
+.hublot-none::before {
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.hublot-none .hublot-icon {
+  color: var(--text-muted);
+  filter: none;
+}
+
+.hublot-none .hublot-status-text {
+  color: var(--text-muted);
+}
+
 .hublot-inner {
   display: flex;
   flex-direction: column;

@@ -253,7 +253,13 @@ function updateHeatUI(data) {
   elements.adviceText.textContent = current.advice;
 
   // Render Hublot Window State
-  if (current.shouldOpen) {
+  if (roomData.hasWindow === false) {
+    elements.hublotCircle.className = 'hublot-circle hublot-none';
+    elements.hublotStatusText.textContent = 'N/A';
+    elements.hublotTitle.textContent = 'Aucune Fenêtre';
+    elements.hublotDesc.textContent = `Cette pièce ne possède pas de fenêtre extérieure pour l'aération directe.`;
+    elements.hublotIcon.setAttribute('data-lucide', 'ban');
+  } else if (current.shouldOpen) {
     elements.hublotCircle.className = 'hublot-circle hublot-open';
     elements.hublotStatusText.textContent = 'Ouvrir';
     elements.hublotTitle.textContent = `Aérer le ${roomData.label}`;
@@ -282,7 +288,13 @@ function updateHeatUI(data) {
   lucide.createIcons();
 
   // Populate crossing predictor
-  if (roomData.nextCrossing) {
+  if (roomData.hasWindow === false) {
+    elements.crossingTimeDisplay.textContent = "N/A";
+    elements.crossingTypeLabel.textContent = "Pas d'aération directe";
+    elements.crossingCountdownDisplay.textContent = "Pièce sans fenêtre";
+    elements.crossingCountdownDisplay.style.color = 'var(--text-muted)';
+    elements.mlDetailsText.textContent = `Le ${roomData.label} ne dispose pas de fenêtre donnant sur l'extérieur. Les prévisions thermiques d'aération directe ne s'appliquent pas.`;
+  } else if (roomData.nextCrossing) {
     elements.crossingTimeDisplay.textContent = roomData.nextCrossing.timeLabel;
     elements.crossingCountdownDisplay.textContent = roomData.nextCrossing.countdown;
     

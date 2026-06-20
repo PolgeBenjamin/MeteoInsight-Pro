@@ -999,7 +999,7 @@ app.get('/api/heat-management', async (req, res) => {
 
       const getRoomSolarProxy = (h, orientation) => {
         if (orientation === null || orientation === undefined) {
-          return Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
+          return 0.0;
         }
         const sunAzimuth = 90 + (h - 6) * 15;
         const diffAngle = Math.abs(sunAzimuth - orientation) % 360;
@@ -1098,7 +1098,7 @@ app.get('/api/heat-management', async (req, res) => {
 
       const isAcOnInRoom = (roomId === 'salle_a_manger') && isCurAcOn;
       const curIsHumidityFavorable = curRoomHin > 60 ? (curToutAH < curTinAH) : (curToutAH < 13.0);
-      let curIsFavorable = curTout < curRoomTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather) && curHout < 85 && curIsHumidityFavorable;
+      let curIsFavorable = (roomConf.windowOrientation !== null) && curTout < curRoomTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather) && curHout < 85 && curIsHumidityFavorable;
       if (isAcOnInRoom) {
         curIsFavorable = false;
       }
@@ -1205,7 +1205,7 @@ app.get('/api/heat-management', async (req, res) => {
         }
 
         // Calculate solar irradiance on window in W/m² (direct + diffuse sky visibility)
-        const solarIrradiance = fDirectRadiation * cosIncidence + fDiffuseRadiation * 0.5;
+        const solarIrradiance = (roomConf.windowOrientation !== null) ? (fDirectRadiation * cosIncidence + fDiffuseRadiation * 0.5) : 0.0;
         
         // Solar gain is actual irradiance normalized (divided by 1000 W/m²) and scaled by the fitted solarCoeff
         const solarGain = solarCoeff * (solarIrradiance / 1000.0);
@@ -1220,7 +1220,7 @@ app.get('/api/heat-management', async (req, res) => {
         const hourLabel = fTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         
         const isHumidityFavorable = nextHin > 60 ? (fToutAH < nextTinAH) : (fToutAH < 13.0);
-        let isFavorable = fTout < nextTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(fCondition) && fHout < 85 && isHumidityFavorable;
+        let isFavorable = (roomConf.windowOrientation !== null) && fTout < nextTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(fCondition) && fHout < 85 && isHumidityFavorable;
         if (isAcOnInRoom) {
           isFavorable = false;
         }
@@ -1327,8 +1327,17 @@ app.get('/api/heat-management', async (req, res) => {
         }
       }
 
+      if (roomConf.windowOrientation === null) {
+        advice = `Cette pièce ne dispose pas de fenêtre donnant sur l'extérieur.`;
+        shouldOpen = false;
+        shouldClose = false;
+        nextCrossing = null;
+      }
+
       roomResults[roomId] = {
         label: roomConf.label,
+        hasWindow: roomConf.windowOrientation !== null,
+        windowOrientation: roomConf.windowOrientation,
         current: {
           indoorTemp: Math.round(curRoomTin * 10) / 10,
           indoorHum: curRoomHin,
