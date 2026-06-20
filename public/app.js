@@ -227,6 +227,47 @@ function drawRoomsSVG(rooms) {
     addText('room-temp-val', 15, '--');
     addText('room-sub-val', 35, '--');
 
+    // Draw window indicator if windowOrientation is present
+    if (room.windowOrientation !== null && room.windowOrientation !== undefined) {
+      const angle = (room.windowOrientation + 360) % 360;
+      const winRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      winRect.setAttribute('fill', '#38bdf8');
+      winRect.setAttribute('stroke', '#0ea5e9');
+      winRect.setAttribute('stroke-width', '1.5');
+      winRect.setAttribute('class', 'room-window');
+      winRect.setAttribute('rx', '1.5');
+      
+      const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+      title.textContent = `Fenêtre (Exposition : ${room.windowOrientation}°)`;
+      winRect.appendChild(title);
+
+      const length = 28;
+      const thickness = 5;
+
+      if (angle >= 315 || angle < 45) { // North
+        winRect.setAttribute('x', room.x + room.w / 2 - length / 2);
+        winRect.setAttribute('y', room.y - thickness / 2);
+        winRect.setAttribute('width', length);
+        winRect.setAttribute('height', thickness);
+      } else if (angle >= 45 && angle < 135) { // East
+        winRect.setAttribute('x', room.x + room.w - thickness / 2);
+        winRect.setAttribute('y', room.y + room.h / 2 - length / 2);
+        winRect.setAttribute('width', thickness);
+        winRect.setAttribute('height', length);
+      } else if (angle >= 135 && angle < 225) { // South
+        winRect.setAttribute('x', room.x + room.w / 2 - length / 2);
+        winRect.setAttribute('y', room.y + room.h - thickness / 2);
+        winRect.setAttribute('width', length);
+        winRect.setAttribute('height', thickness);
+      } else { // West
+        winRect.setAttribute('x', room.x - thickness / 2);
+        winRect.setAttribute('y', room.y + room.h / 2 - length / 2);
+        winRect.setAttribute('width', thickness);
+        winRect.setAttribute('height', length);
+      }
+      roomG.appendChild(winRect);
+    }
+
     group.appendChild(roomG);
   });
 }

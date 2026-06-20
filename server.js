@@ -983,13 +983,24 @@ app.get('/api/heat-management', async (req, res) => {
         });
       }
 
+      const getRoomSolarProxy = (h, orientation) => {
+        if (orientation === null || orientation === undefined) {
+          return Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
+        }
+        const sunAzimuth = 90 + (h - 6) * 15;
+        const diffAngle = Math.abs(sunAzimuth - orientation) % 360;
+        const absDiff = diffAngle > 180 ? 360 - diffAngle : diffAngle;
+        const cosIncidence = Math.max(0, Math.cos(absDiff * Math.PI / 180));
+        return (h >= 6 && h <= 20) ? cosIncidence : 0.0;
+      };
+
       const samples = [];
       for (let i = 0; i < dataset.length - 1; i++) {
         const curr = dataset[i];
         const next = dataset[i + 1];
         if (curr.tin !== null && curr.tout !== null && next.tin !== null && !curr.isAcOn) {
           const h = curr.time.getHours();
-          const solarProxy = Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
+          const solarProxy = getRoomSolarProxy(h, roomConf.windowOrientation);
           samples.push({
             x1: curr.tin - curr.tout,
             x2: solarProxy,
@@ -1036,9 +1047,14 @@ app.get('/api/heat-management', async (req, res) => {
 
       const curTinAH = calculateAH(curRoomTin, curRoomHin);
 
-      // Check if there is an opposite room in the config for cross ventilation
+      // Check if there is an opposite room in the config for cross ventilation (45° tolerance)
       const oppositeOrientation = (roomConf.windowOrientation !== null) ? (roomConf.windowOrientation + 180) % 360 : null;
-      const hasOppositeRoom = config.rooms.some(r => r.id !== roomId && r.tempEntity && r.windowOrientation !== null && Math.abs((r.windowOrientation - oppositeOrientation + 360) % 360) === 0);
+      const hasOppositeRoom = config.rooms.some(r => {
+        if (r.id === roomId || !r.tempEntity || r.windowOrientation === null || oppositeOrientation === null) return false;
+        const diff = Math.abs(r.windowOrientation - oppositeOrientation) % 360;
+        const absDiff = diff > 180 ? 360 - diff : diff;
+        return absDiff <= 45;
+      });
 
       let curWindAlignment = 1.0;
       let curCrossVentilationActive = false;
