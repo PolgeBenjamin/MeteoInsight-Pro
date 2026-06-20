@@ -213,14 +213,75 @@
               </div>
               <div style="text-align: right;">
                 <span class="sub-label">Type</span>
-                <span class="sub-value">Alexa (Switch)</span>
+                <span class="sub-value">Alexa (Direct)</span>
               </div>
             </div>
             
-            <div class="ac-actions" style="display: flex; gap: 0.75rem; margin-top: 1rem;">
-              <button class="nav-link" id="btn-ac-toggle" style="flex: 1; justify-content: center; cursor: pointer; background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.3); color: var(--color-primary);">
+            <!-- Power Control -->
+            <div class="ac-control-row" style="display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 1rem;">
+              <div>
+                <span class="sub-label">Alimentation</span>
+              </div>
+              <button class="nav-link" id="btn-ac-toggle" style="cursor: pointer; background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); color: var(--color-primary); padding: 0.4rem 1rem;">
                 <i data-lucide="power"></i> Allumer / Éteindre
               </button>
+            </div>
+
+            <!-- Temperature Control -->
+            <div class="ac-control-row" style="display: flex; align-items: center; justify-content: space-between; margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 1rem;">
+              <div>
+                <span class="sub-label">Température</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="nav-link" id="btn-ac-temp-down" style="cursor: pointer; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.02);">
+                  <i data-lucide="minus"></i>
+                </button>
+                <span id="ac-temp-val" style="font-size: 1.2rem; font-weight: 600; min-width: 3rem; text-align: center; font-family: var(--font-display);">21°C</span>
+                <button class="nav-link" id="btn-ac-temp-up" style="cursor: pointer; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.02);">
+                  <i data-lucide="plus"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Mode Selection -->
+            <div class="ac-control-row" style="margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 1rem;">
+              <span class="sub-label" style="display: block; margin-bottom: 0.5rem;">Mode de fonctionnement</span>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="nav-link ac-mode-btn" data-mode="cool" style="flex: 1; justify-content: center; cursor: pointer; min-width: 4rem;">
+                  <i data-lucide="snowflake" style="width: 12px; height: 12px;"></i> Froid
+                </button>
+                <button class="nav-link ac-mode-btn" data-mode="heat" style="flex: 1; justify-content: center; cursor: pointer; min-width: 4rem;">
+                  <i data-lucide="flame" style="width: 12px; height: 12px;"></i> Chaud
+                </button>
+                <button class="nav-link ac-mode-btn" data-mode="fan" style="flex: 1; justify-content: center; cursor: pointer; min-width: 4rem;">
+                  <i data-lucide="wind" style="width: 12px; height: 12px;"></i> Vent
+                </button>
+                <button class="nav-link ac-mode-btn" data-mode="dry" style="flex: 1; justify-content: center; cursor: pointer; min-width: 4rem;">
+                  <i data-lucide="droplets" style="width: 12px; height: 12px;"></i> Sec
+                </button>
+                <button class="nav-link ac-mode-btn" data-mode="auto" style="flex: 1; justify-content: center; cursor: pointer; min-width: 4rem;">
+                  <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i> Auto
+                </button>
+              </div>
+            </div>
+
+            <!-- Fan Speed Selection -->
+            <div class="ac-control-row" style="margin-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 1rem;">
+              <span class="sub-label" style="display: block; margin-bottom: 0.5rem;">Vitesse de ventilation</span>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button class="nav-link ac-fan-btn" data-fan="auto" style="flex: 1; justify-content: center; cursor: pointer; min-width: 3.5rem;">
+                  Auto
+                </button>
+                <button class="nav-link ac-fan-btn" data-fan="low" style="flex: 1; justify-content: center; cursor: pointer; min-width: 3.5rem;">
+                  Min
+                </button>
+                <button class="nav-link ac-fan-btn" data-fan="medium" style="flex: 1; justify-content: center; cursor: pointer; min-width: 3.5rem;">
+                  Méd
+                </button>
+                <button class="nav-link ac-fan-btn" data-fan="high" style="flex: 1; justify-content: center; cursor: pointer; min-width: 3.5rem;">
+                  Max
+                </button>
+              </div>
             </div>
           </div>
         </div>

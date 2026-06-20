@@ -179,7 +179,10 @@ app.get('/api/weather', async (req, res) => {
         status: stateMap[config.entities.roborock_status] ? stateMap[config.entities.roborock_status].state : null
       },
       dining_ac: {
-        state: stateMap[config.entities.dining_ac] ? stateMap[config.entities.dining_ac].state : (memoryCache.dining_ac_state || 'off')
+        state: stateMap[config.entities.dining_ac] ? stateMap[config.entities.dining_ac].state : (memoryCache.dining_ac_state || 'off'),
+        temp: memoryCache.dining_ac_temp || 21,
+        mode: memoryCache.dining_ac_mode || 'cool',
+        fan: memoryCache.dining_ac_fan || 'auto'
       }
     };
 
@@ -1327,20 +1330,29 @@ app.post('/api/vacuum/action', express.json(), async (req, res) => {
   }
 });
 
-// Endpoint to toggle or trigger climatisation action
-app.post('/api/clim/toggle', express.json(), async (req, res) => {
+// Endpoint to control climatisation settings (state, temp, mode, fan speed)
+app.post('/api/clim/control', express.json(), async (req, res) => {
   try {
+    const { action, value } = req.body;
     const entityId = config.entities.dining_ac || 'switch.clim';
+    
+    // Default virtual values if not initialized
+    if (memoryCache.dining_ac_state === undefined) memoryCache.dining_ac_state = 'off';
+    if (memoryCache.dining_ac_temp === undefined) memoryCache.dining_ac_temp = 21;
+    if (memoryCache.dining_ac_mode === undefined) memoryCache.dining_ac_mode = 'cool';
+    if (memoryCache.dining_ac_fan === undefined) memoryCache.dining_ac_fan = 'auto';
     
     // Check if the entity exists in HA
     const states = await fetchHAStates();
     const hasHAEntity = states.some(s => s.entity_id === entityId);
     
-    let newState = 'off';
+    let newState = memoryCache.dining_ac_state;
     let isVirtual = true;
+    let commandText = null;
+    let alexaDeviceId = '98c4635e6b0a5e6ceeba0a37414274a0';
     let details = {};
     
-    if (hasHAEntity) {
+    if (hasHAEntity && action === 'toggle') {
       // Toggle it in Home Assistant
       const url = `${config.HA_URL}/api/services/homeassistant/toggle`;
       const response = await fetch(url, {
@@ -1373,41 +1385,94 @@ app.post('/api/clim/toggle', express.json(), async (req, res) => {
       }
       isVirtual = false;
     } else {
-      // Toggle virtual state in memory cache
-      newState = (memoryCache.dining_ac_state === 'on') ? 'off' : 'on';
-      
-      // Send command directly to the Alexa device via HA service
-      const alexaDeviceId = '98c4635e6b0a5e6ceeba0a37414274a0';
-      const commandText = (newState === 'on') ? 'Allume clim' : 'Eteindre clim';
-      
-      const url = `${config.HA_URL}/api/services/alexa_devices/send_text_command`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${config.HA_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          device_id: alexaDeviceId,
-          text_command: commandText
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Home Assistant API returned status code ${response.status} when sending Alexa command`);
+      // Handle direct Alexa commands
+      if (action === 'toggle') {
+        newState = (memoryCache.dining_ac_state === 'on') ? 'off' : 'on';
+        commandText = (newState === 'on') ? 'Allume clim' : 'Eteindre clim';
+        memoryCache.dining_ac_state = newState;
+      } else if (action === 'set_temp') {
+        const tempVal = parseInt(value, 10);
+        if (isNaN(tempVal) || tempVal < 16 || tempVal > 30) {
+          return res.status(400).json({ error: 'Invalid temperature value (must be 16-30)' });
+        }
+        commandText = `Met clim à ${tempVal} degrés`;
+        memoryCache.dining_ac_temp = tempVal;
+        memoryCache.dining_ac_state = 'on';
+        newState = 'on';
+      } else if (action === 'set_mode') {
+        const allowedModes = ['cool', 'heat', 'fan', 'dry', 'auto'];
+        if (!allowedModes.includes(value)) {
+          return res.status(400).json({ error: 'Invalid mode' });
+        }
+        
+        const modeCommands = {
+          cool: 'Met clim en mode climatisation',
+          heat: 'Met clim en mode chauffage',
+          fan: 'Met clim en mode ventilation',
+          dry: 'Met clim en mode déshumidification',
+          auto: 'Met clim en mode automatique'
+        };
+        commandText = modeCommands[value];
+        memoryCache.dining_ac_mode = value;
+        memoryCache.dining_ac_state = 'on';
+        newState = 'on';
+      } else if (action === 'set_fan') {
+        const allowedFans = ['auto', 'low', 'medium', 'high'];
+        if (!allowedFans.includes(value)) {
+          return res.status(400).json({ error: 'Invalid fan speed' });
+        }
+        
+        const fanCommands = {
+          auto: 'Met la vitesse de la clim sur automatique',
+          low: 'Met la vitesse de la clim sur minimum',
+          medium: 'Met la vitesse de la clim sur moyen',
+          high: 'Met la vitesse de la clim sur maximum'
+        };
+        commandText = fanCommands[value];
+        memoryCache.dining_ac_fan = value;
+        memoryCache.dining_ac_state = 'on';
+        newState = 'on';
+      } else {
+        return res.status(400).json({ error: 'Invalid action' });
       }
       
-      memoryCache.dining_ac_state = newState;
+      if (commandText) {
+        const url = `${config.HA_URL}/api/services/alexa_devices/send_text_command`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${config.HA_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            device_id: alexaDeviceId,
+            text_command: commandText
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Home Assistant API returned status code ${response.status} when sending Alexa command`);
+        }
+      }
+      
       isVirtual = false;
       details = { alexaDevice: alexaDeviceId, command: commandText };
     }
     
     memoryCache.weatherTime = 0; // force refresh
     memoryCache.heatTime = 0; // force refresh heat management cache
-    res.json({ success: true, state: newState, isVirtual: isVirtual, ...details });
+    res.json({
+      success: true,
+      state: newState,
+      temp: memoryCache.dining_ac_temp,
+      mode: memoryCache.dining_ac_mode,
+      fan: memoryCache.dining_ac_fan,
+      isVirtual: isVirtual,
+      ...details
+    });
   } catch (error) {
-    console.error('Error toggling AC:', error);
-    res.status(500).json({ error: error.message || 'Failed to toggle AC' });
+    console.error('Error controlling AC:', error);
+    res.status(500).json({ error: error.message || 'Failed to control AC' });
   }
 });
 

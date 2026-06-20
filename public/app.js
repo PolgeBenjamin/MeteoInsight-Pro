@@ -835,7 +835,7 @@ function updateRobovac(roborock) {
   titleEl.textContent = `Roborock Qrevo : ${label}${roomInfo}${batteryInfo}`;
 
   // 8. CLIMATISATION CARD & SVG INDICATOR
-  updateACBadgeState(data.dining_ac?.state);
+  updateACCardState(data.dining_ac);
 }
 
 // Setup Vacuum button listeners for POST requests to Node server
@@ -885,43 +885,93 @@ function setupVacuumControls() {
 function setupACControls() {
   if (elements.btnAcToggle) {
     elements.btnAcToggle.addEventListener('click', async () => {
-      elements.btnAcToggle.disabled = true;
-      try {
-        const res = await fetch('api/clim/toggle', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        if (!res.ok) throw new Error('Failed to toggle AC');
-        const data = await res.json();
-        // Update state immediately
-        updateACBadgeState(data.state);
-        setTimeout(fetchWeatherData, 1000);
-      } catch (err) {
-        console.error(err);
-        alert('Erreur lors du pilotage de la climatisation');
-      } finally {
-        elements.btnAcToggle.disabled = false;
+      controlAC('toggle');
+    });
+  }
+  
+  const btnTempDown = document.getElementById('btn-ac-temp-down');
+  const btnTempUp = document.getElementById('btn-ac-temp-up');
+  if (btnTempDown && btnTempUp) {
+    btnTempDown.addEventListener('click', () => {
+      const currentVal = parseInt(document.getElementById('ac-temp-val').textContent, 10) || 21;
+      if (currentVal > 16) {
+        controlAC('set_temp', currentVal - 1);
+      }
+    });
+    btnTempUp.addEventListener('click', () => {
+      const currentVal = parseInt(document.getElementById('ac-temp-val').textContent, 10) || 21;
+      if (currentVal < 30) {
+        controlAC('set_temp', currentVal + 1);
       }
     });
   }
+  
+  document.querySelectorAll('.ac-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.getAttribute('data-mode');
+      controlAC('set_mode', mode);
+    });
+  });
+
+  document.querySelectorAll('.ac-fan-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fan = btn.getAttribute('data-fan');
+      controlAC('set_fan', fan);
+    });
+  });
 }
 
-function updateACBadgeState(state) {
-  if (!elements.acBadgeState) return;
-  const isOn = state === 'on';
-  elements.acBadgeState.textContent = isOn ? 'Allumée' : 'Éteinte';
+// Call API to control AC state/parameters
+async function controlAC(action, value = null) {
+  const controls = [
+    elements.btnAcToggle,
+    document.getElementById('btn-ac-temp-down'),
+    document.getElementById('btn-ac-temp-up'),
+    ...document.querySelectorAll('.ac-mode-btn'),
+    ...document.querySelectorAll('.ac-fan-btn')
+  ];
   
-  if (isOn) {
-    elements.acBadgeState.style.background = 'rgba(59, 130, 246, 0.15)';
-    elements.acBadgeState.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-    elements.acBadgeState.style.color = 'var(--color-primary)';
-  } else {
-    elements.acBadgeState.style.background = 'rgba(107, 114, 128, 0.15)';
-    elements.acBadgeState.style.borderColor = 'rgba(107, 114, 128, 0.3)';
-    elements.acBadgeState.style.color = '#6b7280';
+  controls.forEach(c => { if (c) c.disabled = true; });
+  
+  try {
+    const res = await fetch('api/clim/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, value })
+    });
+    if (!res.ok) throw new Error('Failed to control AC');
+    const data = await res.json();
+    
+    // Update UI state immediately
+    updateACCardState(data);
+    setTimeout(fetchWeatherData, 1000);
+  } catch (err) {
+    console.error(err);
+    alert('Erreur lors du pilotage de la climatisation');
+  } finally {
+    controls.forEach(c => { if (c) c.disabled = false; });
+  }
+}
+
+function updateACCardState(acData) {
+  if (!acData) return;
+  const state = acData.state;
+  const isOn = state === 'on';
+  
+  if (elements.acBadgeState) {
+    elements.acBadgeState.textContent = isOn ? 'Allumée' : 'Éteinte';
+    if (isOn) {
+      elements.acBadgeState.style.background = 'rgba(59, 130, 246, 0.15)';
+      elements.acBadgeState.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+      elements.acBadgeState.style.color = 'var(--color-primary)';
+    } else {
+      elements.acBadgeState.style.background = 'rgba(107, 114, 128, 0.15)';
+      elements.acBadgeState.style.borderColor = 'rgba(107, 114, 128, 0.3)';
+      elements.acBadgeState.style.color = '#6b7280';
+    }
   }
 
-  // Update SVG indicator class as well
+  // Update SVG indicator class
   const acSvg = document.getElementById('svg-ac-indicator');
   if (acSvg) {
     if (isOn) {
@@ -931,6 +981,36 @@ function updateACBadgeState(state) {
       acSvg.style.display = 'none';
       acSvg.classList.remove('ac-active');
     }
+  }
+
+  // Update Target Temperature
+  const tempValEl = document.getElementById('ac-temp-val');
+  if (tempValEl && acData.temp !== undefined) {
+    tempValEl.textContent = `${acData.temp}°C`;
+  }
+
+  // Update Mode button classes
+  if (acData.mode !== undefined) {
+    document.querySelectorAll('.ac-mode-btn').forEach(btn => {
+      const mode = btn.getAttribute('data-mode');
+      if (mode === acData.mode) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  // Update Fan speed button classes
+  if (acData.fan !== undefined) {
+    document.querySelectorAll('.ac-fan-btn').forEach(btn => {
+      const fan = btn.getAttribute('data-fan');
+      if (fan === acData.fan) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
   }
 }
 
