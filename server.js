@@ -1338,7 +1338,7 @@ app.post('/api/clim/toggle', express.json(), async (req, res) => {
     
     let newState = 'off';
     let isVirtual = true;
-    let triggeredAutomation = null;
+    let details = {};
     
     if (hasHAEntity) {
       // Toggle it in Home Assistant
@@ -1373,44 +1373,38 @@ app.post('/api/clim/toggle', express.json(), async (req, res) => {
       }
       isVirtual = false;
     } else {
-      // Check if we have specific automations for AC
-      const hasOnAutomation = states.some(s => s.entity_id === 'automation.allumage_clim_5am');
-      const hasOffAutomation = states.some(s => s.entity_id === 'automation.eteindre_clim_6am');
-      
       // Toggle virtual state in memory cache
       newState = (memoryCache.dining_ac_state === 'on') ? 'off' : 'on';
       
-      if (newState === 'on' && hasOnAutomation) {
-        triggeredAutomation = 'automation.allumage_clim_5am';
-      } else if (newState === 'off' && hasOffAutomation) {
-        triggeredAutomation = 'automation.eteindre_clim_6am';
-      }
+      // Send command directly to the Alexa device via HA service
+      const alexaDeviceId = '98c4635e6b0a5e6ceeba0a37414274a0';
+      const commandText = (newState === 'on') ? 'Allume clim' : 'Eteindre clim';
       
-      if (triggeredAutomation) {
-        const url = `${config.HA_URL}/api/services/automation/trigger`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${config.HA_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            entity_id: triggeredAutomation
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Home Assistant API returned status code ${response.status} when triggering automation ${triggeredAutomation}`);
-        }
-        isVirtual = false; // triggered a physical automation!
+      const url = `${config.HA_URL}/api/services/alexa_devices/send_text_command`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.HA_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          device_id: alexaDeviceId,
+          text_command: commandText
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Home Assistant API returned status code ${response.status} when sending Alexa command`);
       }
       
       memoryCache.dining_ac_state = newState;
+      isVirtual = false;
+      details = { alexaDevice: alexaDeviceId, command: commandText };
     }
     
     memoryCache.weatherTime = 0; // force refresh
     memoryCache.heatTime = 0; // force refresh heat management cache
-    res.json({ success: true, state: newState, isVirtual: isVirtual, triggeredAutomation: triggeredAutomation });
+    res.json({ success: true, state: newState, isVirtual: isVirtual, ...details });
   } catch (error) {
     console.error('Error toggling AC:', error);
     res.status(500).json({ error: error.message || 'Failed to toggle AC' });
