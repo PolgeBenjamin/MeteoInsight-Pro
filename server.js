@@ -754,6 +754,9 @@ app.get('/api/heat-management', async (req, res) => {
       config.entities.outdoor_temp,
       config.entities.outdoor_humidity
     ];
+    if (config.entities.dining_ac && !entitiesToFetch.includes(config.entities.dining_ac)) {
+      entitiesToFetch.push(config.entities.dining_ac);
+    }
     config.rooms.forEach(r => {
       if (r.tempEntity && !entitiesToFetch.includes(r.tempEntity)) {
         entitiesToFetch.push(r.tempEntity);
@@ -797,6 +800,9 @@ app.get('/api/heat-management', async (req, res) => {
     const weatherState = stateMap[config.entities.weather_forecast];
     const curWindSpeed = (weatherState && weatherState.attributes) ? (weatherState.attributes.wind_speed || 0.0) : 0.0;
     const curWindBearing = (weatherState && weatherState.attributes) ? (weatherState.attributes.wind_bearing || 0.0) : 0.0;
+
+    const curAcState = stateMap[config.entities.dining_ac] ? stateMap[config.entities.dining_ac].state : (memoryCache.dining_ac_state || 'off');
+    const isCurAcOn = curAcState === 'on';
 
     const getStateAt = (history, targetTime) => {
       let activeState = null;
@@ -951,6 +957,7 @@ app.get('/api/heat-management', async (req, res) => {
       const hHist = historyMap[roomConf.humEntity] || [];
       const outTHist = historyMap[config.entities.outdoor_temp] || [];
       const outHHist = historyMap[config.entities.outdoor_humidity] || [];
+      const acHist = (roomId === 'salle_a_manger') ? (historyMap[config.entities.dining_ac] || []) : [];
 
       const dataset = [];
       const hourlyPoints = 30 * 24; // 30 days of history
@@ -959,14 +966,17 @@ app.get('/api/heat-management', async (req, res) => {
         const tin = parseFloat(getStateAt(tHist, targetTime));
         const tout = parseFloat(getStateAt(outTHist, targetTime));
         const hin = parseFloat(getStateAt(hHist, targetTime));
-        const hout = parseFloat(getStateAt(outHHist, targetTime));
+        const chartHout = parseFloat(getStateAt(outHHist, targetTime));
+        const acState = (roomId === 'salle_a_manger') ? getStateAt(acHist, targetTime) : 'off';
+        const isAcOn = acState === 'on';
 
         dataset.push({
           time: targetTime,
           tin: isNaN(tin) ? null : tin,
           tout: isNaN(tout) ? null : tout,
           hin: isNaN(hin) ? null : hin,
-          hout: isNaN(hout) ? null : hout
+          hout: isNaN(chartHout) ? null : chartHout,
+          isAcOn: isAcOn
         });
       }
 
@@ -974,7 +984,7 @@ app.get('/api/heat-management', async (req, res) => {
       for (let i = 0; i < dataset.length - 1; i++) {
         const curr = dataset[i];
         const next = dataset[i + 1];
-        if (curr.tin !== null && curr.tout !== null && next.tin !== null) {
+        if (curr.tin !== null && curr.tout !== null && next.tin !== null && !curr.isAcOn) {
           const h = curr.time.getHours();
           const solarProxy = Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
           samples.push({
@@ -1042,8 +1052,12 @@ app.get('/api/heat-management', async (req, res) => {
         }
       }
 
+      const isAcOnInRoom = (roomId === 'salle_a_manger') && isCurAcOn;
       const curIsHumidityFavorable = curRoomHin > 60 ? (curToutAH < curTinAH) : (curToutAH < 13.0);
-      const curIsFavorable = curTout < curRoomTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather) && curHout < 85 && curIsHumidityFavorable;
+      let curIsFavorable = curTout < curRoomTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(curWeather) && curHout < 85 && curIsHumidityFavorable;
+      if (isAcOnInRoom) {
+        curIsFavorable = false;
+      }
 
       const timeline = [];
       timeline.push({
@@ -1131,7 +1145,10 @@ app.get('/api/heat-management', async (req, res) => {
         const hourLabel = fTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         
         const isHumidityFavorable = nextHin > 60 ? (fToutAH < nextTinAH) : (fToutAH < 13.0);
-        const isFavorable = fTout < nextTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(fCondition) && fHout < 85 && isHumidityFavorable;
+        let isFavorable = fTout < nextTin && !['rainy', 'snowy', 'hail', 'lightning', 'pouring'].includes(fCondition) && fHout < 85 && isHumidityFavorable;
+        if (isAcOnInRoom) {
+          isFavorable = false;
+        }
 
         timeline.push({
           time: f.datetime,
@@ -1359,6 +1376,7 @@ app.post('/api/clim/toggle', express.json(), async (req, res) => {
     }
     
     memoryCache.weatherTime = 0; // force refresh
+    memoryCache.heatTime = 0; // force refresh heat management cache
     res.json({ success: true, state: newState, isVirtual: !hasHAEntity });
   } catch (error) {
     console.error('Error toggling AC:', error);
