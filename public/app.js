@@ -992,6 +992,21 @@ async function controlAC(action, value = null) {
     
     // Update UI state immediately
     updateACCardState(data);
+    
+    // Show last Alexa command sent
+    if (data.command) {
+      const cmdRow = document.getElementById('ac-last-cmd-row');
+      const cmdText = document.getElementById('ac-last-cmd-text');
+      if (cmdRow && cmdText) {
+        cmdText.textContent = `"${data.command}"`;
+        cmdRow.style.display = 'flex';
+        clearTimeout(window._acCmdTimer);
+        window._acCmdTimer = setTimeout(() => {
+          cmdRow.style.display = 'none';
+        }, 6000);
+      }
+    }
+    
     setTimeout(fetchWeatherData, 1000);
   } catch (err) {
     console.error(err);
