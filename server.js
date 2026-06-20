@@ -674,7 +674,7 @@ async function getBiasModelCoefficients(lat, lon, timezone) {
         const localState = getStateAt(haHistory, tTime);
         const localTemp = parseFloat(localState);
 
-        if (modelTemp !== null && modelTemp !== undefined && !isNaN(localTemp)) {
+        if (tTime.getTime() <= nowTime && modelTemp !== null && modelTemp !== undefined && !isNaN(localTemp)) {
           const h = tTime.getHours();
           const solarProxy = Math.max(0, Math.cos(((h - 13) / 12) * Math.PI));
           samples.push({
