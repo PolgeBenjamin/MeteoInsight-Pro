@@ -27,10 +27,11 @@ Développé pour un usage personnel et communautaire, MeteoInsight-Pro est enti�
 * **Plan Interactif 2D Dynamique** : Dessiné dynamiquement en SVG sur le client en fonction de vos configurations de pièces. Supporte les calques d'affichage thermique, luminosité ambiante (lux), humidité relative, qualité de l'air (CO2/PM2.5), bruit (dB) et présence.
 * **Prévisions Météo à double modèle** :
   * *Modèle Physique* : Analyse des tendances de variations barométriques et d'humidité relative à horizon 3h, 6h, 12h et 24h.
-  * *Modèle Machine Learning* : Algorithme KNN (K-Nearest Neighbors) auto-entraîné localement sur les 7 derniers jours d'historique de votre station.
+  * *Modèle Machine Learning (KNN)* : Algorithme KNN (K-Nearest Neighbors) auto-entraîné localement sur les 7 derniers jours d'historique de votre station.
+  * *Correction de biais ML (AROME - Micro-climat local)* : Modèle de correction de biais (Ridge Regression) entraîné sur les données réelles locales (Home Assistant) et les archives physiques AROME. Il corrige dynamiquement les prévisions à haute résolution d'AROME pour les adapter au micro-climat réel de la maison (effet d'îlot de chaleur nocturne, ombrage d'après-midi, cycle solaire).
 * **Gestion Thermique & Aération prédictive** :
-  * Calcul en temps réel de l'**Humidité Absolue (g/m³)** intérieure et extérieure pour estimer si l'aération asséchera ou humidifiera l'habitat.
-  * Projections de température à 24h par régression linéaire (tenant compte de la météo, de la couverture nuageuse et du vent).
+  * Calcul en temps réel de l'**Humidité Absolue (g/m³)** intérieure et extérieure pour estimer si l'aération asséchera ou humidifiera l'habitat (confort hygrothermique).
+  * Projections de température à 24h par régression linéaire (utilisant la **température extérieure ajustée par ML (AROME)**, l'exposition des fenêtres de chaque pièce et la vitesse/orientation du vent local).
   * Calcul de la prochaine heure de croisement des courbes pour afficher un compte à rebours exact avant d'ouvrir ou fermer les fenêtres.
 * **Analyse d'Affluence sur 30 jours** : Agrégation de vos historiques de détecteurs de mouvement sur 30 jours pour dessiner une courbe de rythme d'activité horaire sur 24h et optimiser vos scénarios de chauffage ou d'éclairage.
 * **Contrôle Bidirectionnel Roborock** : Boutons d'action rapides (lancer le nettoyage, retour à la base) et animation dynamique de l'aspirateur en zigzag dans sa pièce de nettoyage actuelle.
